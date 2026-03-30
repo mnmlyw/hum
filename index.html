@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hum</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #16181a;
+  --fg: #ffffff;
+  --fg2: #7b8496;
+  --error: #ff6e5e;
+  --blue: #5ea1ff;
+  --green: #5eff6c;
+  --cyan: #5ef1ff;
+  --magenta: #ff5ef1;
+  --pink: #ff5ea0;
+  --orange: #ffbd5e;
+  --purple: #bd5eff;
+  --font: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+  overflow: hidden;
+}
+
+#app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+#editor-wrap {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+#highlight {
+  position: absolute;
+  inset: 0;
+  padding: 32px 32px 48px;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre;
+  overflow: auto;
+  pointer-events: none;
+  color: var(--fg);
+  tab-size: 2;
+}
+
+#highlight .cm { color: var(--fg2); }
+#highlight .kw { color: var(--magenta); }
+#highlight .wf { color: var(--cyan); }
+#highlight .nm { color: var(--fg); opacity: 0.5; }
+#highlight .nt { color: var(--green); }
+#highlight .tr { color: var(--pink); }
+#highlight .rs { color: var(--fg2); opacity: 0.3; }
+#highlight .bl { color: var(--fg2); opacity: 0.3; }
+#highlight .co { color: var(--purple); }
+#highlight .fx { color: var(--blue); }
+#highlight .nu { color: var(--orange); }
+#highlight .er { text-decoration: underline wavy var(--error); }
+#highlight .playing.nt,
+#highlight .playing.tr { background: var(--cyan); color: var(--bg); border-radius: 2px; }
+#highlight .playing.rs { opacity: 0.7; }
+
+#editor {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  color: transparent;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.7;
+  padding: 32px 32px 48px;
+  border: none;
+  outline: none;
+  resize: none;
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+  caret-color: var(--fg);
+  z-index: 1;
+}
+
+#editor::placeholder {
+  color: var(--fg2);
+}
+
+#footer {
+  z-index: 2;
+  border-top: 1px solid #1e2124;
+  background: var(--bg);
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: 48px;
+}
+
+#info-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 6px 16px;
+  font-size: 11px;
+  color: var(--fg2);
+  user-select: none;
+}
+
+#controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  font-size: 11px;
+  color: var(--fg2);
+  user-select: none;
+}
+
+#spacer2 { flex: 1; }
+
+#controls button {
+  background: none;
+  border: none;
+  color: var(--fg2);
+  font-family: var(--font);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 0;
+  letter-spacing: 0.5px;
+}
+
+#controls button:hover { color: var(--fg); }
+#play-btn.playing { color: var(--cyan); }
+#apply-btn { display: none; }
+#apply-btn.visible { display: inline; color: var(--orange); }
+
+#step-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.step-dot {
+  width: 4px;
+  height: 4px;
+  flex-shrink: 0;
+  border-radius: 1px;
+  background: #2a2d32;
+  transition: background 0.08s;
+}
+
+.step-dot.beat {
+  background: var(--fg2);
+}
+
+.step-dot.active {
+  background: var(--cyan);
+}
+
+#spacer { flex: 1; }
+
+#channel-info {
+  font-size: 11px;
+  color: var(--fg2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="editor-wrap">
+    <div id="highlight"></div>
+    <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"
+      placeholder="bpm 120&#10;bass saw c2 . e2 . g2 . c2 e2 : lpf 400"></textarea>
+  </div>
+  <div id="footer">
+    <canvas id="canvas"></canvas>
+    <div id="info-bar">
+      <div id="step-bar"></div>
+      <div id="spacer"></div>
+      <div id="channel-info"></div>
+    </div>
+    <div id="controls">
+      <button id="play-btn">play</button>
+      <button id="apply-btn">apply</button>
+      <div id="spacer2"></div>
+      <button id="load-btn">load</button>
+      <button id="save-btn">save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Constants & Note Table ──────────────────────────────────────────
+
+const NOTE_NAMES = ['c','c#','d','d#','e','f','f#','g','g#','a','a#','b'];
+const FLAT_MAP = { 'db':'c#','eb':'d#','fb':'e','gb':'f#','ab':'g#','bb':'a#','cb':'b' };
+const WAVEFORM_MAP = { sin:'sine', tri:'triangle', sqr:'square', saw:'sawtooth' };
+const WAVEFORMS = ['sin','tri','sqr','saw','noise'];
+const MAX_CHANNELS = 8;
+const DEFAULT_BPM = 120;
+const SCHEDULE_AHEAD = 0.15;
+const TICK_MS = 25;
+
+// Web Worker for timer — immune to background tab throttling
+const timerWorkerBlob = new Blob([`
+let id = null;
+onmessage = function(e) {
+  if (e.data.cmd === 'start') {
+    if (id !== null) clearInterval(id);
+    id = setInterval(function() { postMessage('tick'); }, e.data.interval);
+  } else if (e.data.cmd === 'stop') {
+    if (id !== null) { clearInterval(id); id = null; }
+  }
+};
+`], { type: 'text/javascript' });
+const timerWorker = new Worker(URL.createObjectURL(timerWorkerBlob));
+
+// Generate note frequencies: A4 = 440Hz
+const NOTE_FREQ = {};
+for (let oct = 0; oct <= 8; oct++) {
+  for (let i = 0; i < 12; i++) {
+    const midi = oct * 12 + i + 12; // C0 = MIDI 12
+    const freq = 440 * Math.pow(2, (midi - 69) / 12);
+    NOTE_FREQ[NOTE_NAMES[i] + oct] = freq;
+  }
+}
+// Add flat aliases
+for (let oct = 0; oct <= 8; oct++) {
+  for (const [flat, sharp] of Object.entries(FLAT_MAP)) {
+    const sharpOct = (flat === 'cb') ? oct - 1 : oct;
+    if (sharpOct >= 0 && sharpOct <= 8) {
+      NOTE_FREQ[flat + oct] = NOTE_FREQ[sharp + sharpOct];
+    }
+  }
+}
+
+// ── Parser ──────────────────────────────────────────────────────────
+
+// Parse number with shorthand: .05 -> 0.05, 6k -> 6000
+function parseNum(s) {
+  if (!s) return NaN;
+  s = s.trim().toLowerCase();
+  if (s.endsWith('k')) return parseFloat(s.slice(0, -1)) * 1000;
+  return parseFloat(s);
+}
+
+const EFFECT_NAMES = new Set(['lpf','hpf','decay','vol','attack','sustain','release']);
+
+function parse(text) {
+  const result = { bpm: DEFAULT_BPM, channels: [], errors: [] };
+
+  // Join continuation lines: indented lines append to the previous line
+  const rawLines = text.split('\n');
+  const lines = [];
+  for (const raw of rawLines) {
+    // Strip comments before joining so a comment on a continuation line
+    // doesn't swallow subsequent continuations
+    const stripped = raw.replace(/--.*$/, '');
+    if (stripped.match(/^[ \t]+\S/) && lines.length > 0) {
+      lines[lines.length - 1] += ' ' + stripped.trim();
+    } else {
+      lines.push(stripped);
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.replace(/--.*$/, '').trim();
+    if (!line) continue;
+
+    try {
+      // BPM
+      const bpmMatch = line.match(/^bpm\s+(\d+\.?\d*k?)$/i);
+      if (bpmMatch) {
+        result.bpm = parseNum(bpmMatch[1]);
+        if (result.bpm < 20 || result.bpm > 999) {
+          result.errors.push({ line: i + 1, message: 'bpm must be 20-999' });
+          result.bpm = Math.max(20, Math.min(999, result.bpm));
+        }
+        continue;
+      }
+
+      // Channel definition: name waveform pattern [: effects]
+      const tokens = line.split(/\s+/);
+      if (tokens.length < 3) continue;
+
+      const waveform = tokens[1].toLowerCase();
+      if (!WAVEFORMS.includes(waveform)) {
+        // Not a channel definition
+        if (line.match(/^[a-zA-Z]/)) {
+          result.errors.push({ line: i + 1, message: `unknown waveform: ${tokens[1]}` });
+        }
+        continue;
+      }
+
+      if (result.channels.length >= MAX_CHANNELS) {
+        result.errors.push({ line: i + 1, message: 'maximum 8 channels' });
+        continue;
+      }
+
+      const name = tokens[0];
+
+      // Split on : to separate pattern from effects
+      const colonIdx = line.indexOf(':');
+      // Find where pattern starts: after "name waveform"
+      const afterWaveform = line.match(/^\S+\s+\S+/)[0].length;
+      let patternStr, effectsStr;
+      if (colonIdx !== -1) {
+        patternStr = line.slice(afterWaveform, colonIdx).trim();
+        effectsStr = line.slice(colonIdx + 1).trim();
+      } else {
+        patternStr = line.slice(afterWaveform).trim();
+        effectsStr = '';
+      }
+
+      // Pattern: space-separated tokens, | is bar line (ignored), . is rest
+      const patTokens = patternStr.split(/\s+/).filter(t => t && t !== '|' && t !== ',');
+      const pattern = [];
+      for (const token of patTokens) {
+        const t = token.toLowerCase();
+        if (t === '.' || t === '_') {
+          pattern.push({ type: 'rest' });
+        } else if (t === 'x') {
+          pattern.push({ type: 'trigger' });
+        } else {
+          const freq = NOTE_FREQ[t];
+          if (freq !== undefined) {
+            pattern.push({ type: 'note', freq, name: t });
+          } else {
+            result.errors.push({ line: i + 1, message: `unknown note: ${token}` });
+            pattern.push({ type: 'rest' });
+          }
+        }
+      }
+
+      if (pattern.length === 0) {
+        result.errors.push({ line: i + 1, message: 'empty pattern' });
+        continue;
+      }
+
+      // Effects: name value pairs after :
+      const effects = { lpf: null, hpf: null, decay: null, vol: 1.0 };
+      if (effectsStr) {
+        const fxTokens = effectsStr.split(/\s+/);
+        for (let j = 0; j < fxTokens.length; j += 2) {
+          const fx = fxTokens[j].toLowerCase();
+          const val = parseNum(fxTokens[j + 1]);
+          if (!EFFECT_NAMES.has(fx)) {
+            result.errors.push({ line: i + 1, message: `unknown effect: ${fx}` });
+            continue;
+          }
+          if (isNaN(val)) {
+            result.errors.push({ line: i + 1, message: `missing value for ${fx}` });
+            continue;
+          }
+          if (fx === 'lpf') effects.lpf = val;
+          else if (fx === 'hpf') effects.hpf = val;
+          else if (fx === 'decay') effects.decay = val;
+          else if (fx === 'vol') effects.vol = Math.max(0, Math.min(1, val));
+          else if (fx === 'attack') effects.attack = val;
+          else if (fx === 'sustain') effects.sustain = Math.max(0, Math.min(1, val));
+          else if (fx === 'release') effects.release = val;
+        }
+      }
+
+      result.channels.push({ name, waveform, pattern, effects });
+    } catch (e) {
+      result.errors.push({ line: i + 1, message: e.message });
+    }
+  }
+
+  return result;
+}
+
+// ── Audio Engine ────────────────────────────────────────────────────
+
+let audioCtx = null;
+let noiseBuffer = null;
+let analyserNode = null;
+let channelNodes = [];
+let scheduler = null;
+let isPlaying = false;
+
+function ensureAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new AudioContext();
+    const compressor = audioCtx.createDynamicsCompressor();
+    compressor.threshold.value = -12;
+    compressor.knee.value = 6;
+    compressor.ratio.value = 8;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.1;
+    compressor.connect(audioCtx.destination);
+    analyserNode = audioCtx.createAnalyser();
+    analyserNode.fftSize = 2048;
+    analyserNode.connect(compressor);
+    // Create noise buffer
+    const size = audioCtx.sampleRate * 2;
+    noiseBuffer = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function buildGraph(hum) {
+  teardownGraph();
+  channelNodes = [];
+
+  for (const ch of hum.channels) {
+    let source;
+    if (ch.waveform === 'noise') {
+      source = audioCtx.createBufferSource();
+      source.buffer = noiseBuffer;
+      source.loop = true;
+      source.start();
+    } else {
+      source = audioCtx.createOscillator();
+      source.type = WAVEFORM_MAP[ch.waveform];
+      source.frequency.value = 0;
+      source.start();
+    }
+
+    const envelopeGain = audioCtx.createGain();
+    envelopeGain.gain.value = 0;
+
+    let lastNode = source;
+    lastNode.connect(envelopeGain);
+    lastNode = envelopeGain;
+
+    let filterLPF = null;
+    if (ch.effects.lpf !== null) {
+      filterLPF = audioCtx.createBiquadFilter();
+      filterLPF.type = 'lowpass';
+      filterLPF.frequency.value = ch.effects.lpf;
+      filterLPF.Q.value = 1;
+      lastNode.connect(filterLPF);
+      lastNode = filterLPF;
+    }
+
+    let filterHPF = null;
+    if (ch.effects.hpf !== null) {
+      filterHPF = audioCtx.createBiquadFilter();
+      filterHPF.type = 'highpass';
+      filterHPF.frequency.value = ch.effects.hpf;
+      filterHPF.Q.value = 1;
+      lastNode.connect(filterHPF);
+      lastNode = filterHPF;
+    }
+
+    const volumeGain = audioCtx.createGain();
+    volumeGain.gain.value = ch.effects.vol;
+    lastNode.connect(volumeGain);
+    volumeGain.connect(analyserNode);
+
+    channelNodes.push({ source, envelopeGain, filterLPF, filterHPF, volumeGain, channel: ch });
+  }
+}
+
+function teardownGraph() {
+  for (const node of channelNodes) {
+    try {
+      node.envelopeGain.gain.cancelScheduledValues(0);
+      node.envelopeGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      node.source.stop();
+    } catch (e) {}
+    try { node.source.disconnect(); } catch (e) {}
+    try { node.envelopeGain.disconnect(); } catch (e) {}
+    try { if (node.filterLPF) node.filterLPF.disconnect(); } catch (e) {}
+    try { if (node.filterHPF) node.filterHPF.disconnect(); } catch (e) {}
+    try { node.volumeGain.disconnect(); } catch (e) {}
+  }
+  channelNodes = [];
+}
+
+// ── Scheduler ───────────────────────────────────────────────────────
+
+class Scheduler {
+  constructor(audioCtx, hum, channelNodes) {
+    this.audioCtx = audioCtx;
+    this.hum = hum;
+    this.channelNodes = channelNodes;
+    this.stepDuration = 60 / hum.bpm / 2; // 8th note
+    this.currentStep = 0;
+    this.startTime = null;
+  }
+
+  start(fromStep = 0) {
+    const now = this.audioCtx.currentTime;
+    this.startTime = now + 0.1 - (fromStep * this.stepDuration);
+    this.currentStep = fromStep;
+    // Pre-schedule a full second to survive Worker startup latency
+    while (this.stepTime(this.currentStep) < now + 1.0) {
+      this.scheduleStep(this.stepTime(this.currentStep));
+      this.currentStep++;
+    }
+    this._onTick = () => this.tick();
+    timerWorker.addEventListener('message', this._onTick);
+    timerWorker.postMessage({ cmd: 'start', interval: TICK_MS });
+  }
+
+  stop() {
+    timerWorker.postMessage({ cmd: 'stop' });
+    if (this._onTick) {
+      timerWorker.removeEventListener('message', this._onTick);
+      this._onTick = null;
+    }
+  }
+
+  // Compute step time from base — no floating point accumulation
+  stepTime(step) {
+    return this.startTime + step * this.stepDuration;
+  }
+
+  tick() {
+    const now = this.audioCtx.currentTime;
+    while (this.stepTime(this.currentStep) < now + SCHEDULE_AHEAD) {
+      this.scheduleStep(this.stepTime(this.currentStep));
+      this.currentStep++;
+    }
+  }
+
+  scheduleStep(time) {
+    for (const node of this.channelNodes) {
+      const ch = node.channel;
+      const stepIdx = this.currentStep % ch.pattern.length;
+      const step = ch.pattern[stepIdx];
+      const gain = node.envelopeGain.gain;
+
+      if (step.type === 'rest') {
+        gain.setTargetAtTime(0, time, 0.003);
+      } else {
+        // Set frequency for pitched oscillators
+        if (step.type === 'note' && ch.waveform !== 'noise') {
+          node.source.frequency.setValueAtTime(step.freq, time);
+        }
+
+        // Trigger envelope
+        gain.cancelScheduledValues(time);
+        gain.setValueAtTime(0.001, time);
+        gain.linearRampToValueAtTime(1.0, time + 0.003);
+
+        if (ch.effects.decay !== null) {
+          gain.exponentialRampToValueAtTime(0.001, time + ch.effects.decay + 0.003);
+        } else {
+          // Hold for step duration, then quick release
+          const holdEnd = time + this.stepDuration - 0.005;
+          if (holdEnd > time + 0.003) {
+            gain.setValueAtTime(1.0, holdEnd);
+            gain.linearRampToValueAtTime(0.001, time + this.stepDuration);
+          }
+        }
+      }
+    }
+  }
+
+  getVisualStep() {
+    if (this.startTime === null) return 0;
+    const elapsed = this.audioCtx.currentTime - this.startTime;
+    return Math.floor(elapsed / this.stepDuration);
+  }
+}
+
+// ── Visualizer ──────────────────────────────────────────────────────
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const stepBar = document.getElementById('step-bar');
+let stepDots = [];
+let stepSpanMap = {};
+let prevPlaying = [];
+
+function resizeCanvas() {
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+
+new ResizeObserver(resizeCanvas).observe(canvas);
+resizeCanvas();
+
+function buildStepDots(maxSteps) {
+  stepBar.innerHTML = '';
+  stepDots = [];
+  const count = Math.min(maxSteps || 8, 64);
+  for (let i = 0; i < count; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'step-dot' + (i % 8 === 0 ? ' beat' : '');
+    stepBar.appendChild(dot);
+    stepDots.push(dot);
+  }
+}
+
+buildStepDots(8);
+
+function drawViz() {
+  const w = canvas.clientWidth;
+  const h = canvas.clientHeight;
+
+  ctx.clearRect(0, 0, w, h);
+
+  if (analyserNode && isPlaying) {
+    const bufLen = analyserNode.frequencyBinCount;
+    const dataArray = new Uint8Array(bufLen);
+    analyserNode.getByteTimeDomainData(dataArray);
+
+    // Fill waveform
+    ctx.beginPath();
+    const sliceWidth = w / bufLen;
+    let x = 0;
+    for (let i = 0; i < bufLen; i++) {
+      const v = dataArray[i] / 128.0;
+      const y = (v * h) / 2;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+      x += sliceWidth;
+    }
+    ctx.lineTo(w, h / 2);
+    ctx.strokeStyle = 'rgba(94, 241, 255, 0.35)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Soft fill under the waveform
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(94, 241, 255, 0.04)';
+    ctx.fill();
+
+    // Update step dots + note playhead
+    if (scheduler && stepDots.length > 0) {
+      const vs = scheduler.getVisualStep();
+      const activeIdx = vs % stepDots.length;
+      for (let i = 0; i < stepDots.length; i++) {
+        stepDots[i].classList.toggle('active', i === activeIdx);
+      }
+
+      // Highlight playing notes in editor
+      for (const el of prevPlaying) el.classList.remove('playing');
+      prevPlaying = [];
+      for (let i = 0; i < channelNodes.length; i++) {
+        const ch = channelNodes[i].channel;
+        const stepIdx = vs % ch.pattern.length;
+        const el = stepSpanMap[i + '-' + stepIdx];
+        if (el) {
+          el.classList.add('playing');
+          prevPlaying.push(el);
+        }
+      }
+    }
+  } else {
+    for (const dot of stepDots) dot.classList.remove('active');
+    for (const el of prevPlaying) el.classList.remove('playing');
+    prevPlaying = [];
+  }
+
+  requestAnimationFrame(drawViz);
+}
+
+drawViz();
+
+// ── Editor & Live Evaluation ────────────────────────────────────────
+
+const editor = document.getElementById('editor');
+const highlight = document.getElementById('highlight');
+const playBtn = document.getElementById('play-btn');
+const applyBtn = document.getElementById('apply-btn');
+const channelInfo = document.getElementById('channel-info');
+let debounceTimer = null;
+
+// ── Syntax Highlighter ──────────────────────────────────────────────
+
+const NUM_RE = /^\.?\d[\d.]*k?$/;
+
+function esc(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function span(cls, text) {
+  return `<span class="${cls}">${esc(text)}</span>`;
+}
+
+function ptSpan(cls, text, ch, s) {
+  if (ch !== null && s !== null) {
+    return `<span class="pt ${cls}" data-ch="${ch}" data-s="${s}">${esc(text)}</span>`;
+  }
+  return span(cls, text);
+}
+
+function highlightTokens(code, comment, chIdx, stepCounter) {
+  // Highlight pattern tokens and effects in a code fragment
+  const colonIdx = code.indexOf(':');
+  const patPart = colonIdx !== -1 ? code.slice(0, colonIdx) : code;
+  const fxPart = colonIdx !== -1 ? code.slice(colonIdx) : '';
+  let out = '';
+  const ch = chIdx !== undefined ? chIdx : null;
+
+  const patTokens = patPart.split(/(\s+)/);
+  for (const ct of patTokens) {
+    if (ct.match(/^\s+$/)) { out += esc(ct); continue; }
+    const low = ct.toLowerCase();
+    const s = (stepCounter && ch !== null) ? stepCounter.n : null;
+    if (low === '.' || low === '_') { out += ptSpan('rs', ct, ch, s); if (stepCounter) stepCounter.n++; }
+    else if (low === 'x') { out += ptSpan('tr', ct, ch, s); if (stepCounter) stepCounter.n++; }
+    else if (low === '|' || low === ',') out += span('bl', ct);
+    else if (NOTE_FREQ[low] !== undefined) { out += ptSpan('nt', ct, ch, s); if (stepCounter) stepCounter.n++; }
+    else { out += ptSpan('er', ct, ch, s); if (stepCounter) stepCounter.n++; }
+  }
+
+  if (fxPart) {
+    out += span('co', ':');
+    const fxBody = fxPart.slice(1);
+    const fxTokens = fxBody.split(/(\s+)/);
+    for (const ft of fxTokens) {
+      if (ft.match(/^\s+$/)) out += esc(ft);
+      else if (EFFECT_NAMES.has(ft.toLowerCase())) out += span('fx', ft);
+      else if (NUM_RE.test(ft)) out += span('nu', ft);
+      else out += span('er', ft);
+    }
+  }
+
+  return out + (comment ? span('cm', comment) : '');
+}
+
+function highlightLine(line, prevIsChannel, chIdx, stepCounter) {
+  // Comment
+  const commentIdx = line.indexOf('--');
+  let code = line, comment = '';
+  if (commentIdx !== -1) {
+    code = line.slice(0, commentIdx);
+    comment = line.slice(commentIdx);
+  }
+
+  if (!code.trim()) {
+    return esc(code) + (comment ? span('cm', comment) : '');
+  }
+
+  const trimmed = code.trim();
+
+  // Continuation line (indented)
+  if (code.match(/^[ \t]+\S/) && prevIsChannel) {
+    const lead = code.match(/^(\s*)/)[1];
+    return esc(lead) + highlightTokens(code.trimStart(), comment, chIdx, stepCounter);
+  }
+
+  // BPM line
+  if (trimmed.match(/^bpm\s/i)) {
+    const parts = trimmed.split(/(\s+)/);
+    let out = '';
+    const lead = code.match(/^(\s*)/)[1];
+    out += esc(lead);
+    out += span('kw', parts[0]);
+    for (let i = 1; i < parts.length; i++) {
+      out += parts[i].match(/\s/) ? esc(parts[i]) : span('nu', parts[i]);
+    }
+    return out + (comment ? span('cm', comment) : '');
+  }
+
+  // Channel definition: name waveform pattern [: effects]
+  const tokens = trimmed.split(/\s+/);
+  if (tokens.length >= 2 && WAVEFORMS.includes(tokens[1].toLowerCase())) {
+    const lead = code.match(/^(\s*)/)[1];
+    let out = esc(lead);
+
+    // Highlight name and waveform, then delegate the rest
+    const codeTokens = code.trimStart().split(/(\s+)/);
+    let headerDone = false;
+    let tokenIdx = 0;
+    let restStart = 0;
+    for (const ct of codeTokens) {
+      if (ct.match(/^\s+$/)) { out += esc(ct); restStart += ct.length; continue; }
+      if (tokenIdx === 0) { out += span('nm', ct); }
+      else if (tokenIdx === 1) { out += span('wf', ct); headerDone = true; }
+      restStart += ct.length;
+      tokenIdx++;
+      if (headerDone) break;
+    }
+
+    // Pattern + effects after the header
+    const remainder = code.trimStart().slice(restStart);
+    if (remainder.trim()) {
+      out += highlightTokens(remainder, '', chIdx, stepCounter);
+    }
+
+    return out + (comment ? span('cm', comment) : '');
+  }
+
+  // Possible channel def with invalid waveform
+  if (tokens.length >= 2 && !code.match(/^[ \t]/)
+      && tokens[0].match(/^[a-zA-Z_]/) && !NOTE_FREQ[tokens[0].toLowerCase()]
+      && !tokens[0].match(/^bpm$/i)) {
+    const lead = code.match(/^(\s*)/)[1];
+    const parts = code.trimStart().split(/(\s+)/);
+    let out = esc(lead);
+    let ti = 0;
+    for (const p of parts) {
+      if (p.match(/^\s+$/)) { out += esc(p); continue; }
+      if (ti === 0) out += span('nm', p);
+      else if (ti === 1) out += span('er', p);
+      else out += esc(p);
+      ti++;
+    }
+    return out + (comment ? span('cm', comment) : '');
+  }
+
+  // Fallback
+  return esc(code) + (comment ? span('cm', comment) : '');
+}
+
+function updateHighlight() {
+  const text = editor.value;
+  const lines = text.split('\n');
+  let prevIsChannel = false;
+  let chIdx = -1;
+  let stepCounter = null;
+  const out = [];
+  for (const line of lines) {
+    const trimmed = line.replace(/--.*$/, '').trim();
+    const tokens = trimmed.split(/\s+/);
+    if (tokens.length >= 2 && WAVEFORMS.includes((tokens[1] || '').toLowerCase())) {
+      chIdx++;
+      stepCounter = { n: 0 };
+      prevIsChannel = true;
+    } else if (line.match(/^[ \t]+\S/) && prevIsChannel) {
+      // continuation — keep chIdx and stepCounter
+    } else {
+      prevIsChannel = false;
+      stepCounter = null;
+    }
+    out.push(highlightLine(line, prevIsChannel, chIdx, stepCounter));
+  }
+  highlight.innerHTML = out.join('\n') + '\n';
+
+  // Build lookup for playhead
+  stepSpanMap = {};
+  for (const el of highlight.querySelectorAll('.pt')) {
+    stepSpanMap[el.dataset.ch + '-' + el.dataset.s] = el;
+  }
+}
+
+// Sync scroll
+editor.addEventListener('scroll', () => {
+  highlight.scrollTop = editor.scrollTop;
+  highlight.scrollLeft = editor.scrollLeft;
+});
+
+// Tab handling
+editor.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    editor.value = editor.value.slice(0, start) + '  ' + editor.value.slice(end);
+    editor.selectionStart = editor.selectionEnd = start + 2;
+    onInput();
+  }
+});
+
+editor.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(onInput, 300);
+  updateHighlight();
+});
+
+function onInput() {
+  updateHighlight();
+  const text = editor.value;
+  const hum = parse(text);
+
+  // Update channel info
+  channelInfo.textContent = hum.channels.length > 0
+    ? hum.channels.map(c => `${c.name}: ${c.waveform}`).join('  ')
+    : '';
+
+  // Find max pattern length for step dots
+  const maxLen = hum.channels.reduce((m, c) => Math.max(m, c.pattern.length), 0);
+  if (maxLen !== stepDots.length) buildStepDots(maxLen);
+
+  // Mark pending changes while playing
+  if (isPlaying) applyBtn.classList.add('visible');
+}
+
+// ── Play / Stop ─────────────────────────────────────────────────────
+
+playBtn.addEventListener('click', () => {
+  if (isPlaying) {
+    stopPlayback();
+  } else {
+    startPlayback();
+  }
+});
+
+function applyChanges() {
+  if (!isPlaying || !audioCtx) return;
+  const text = editor.value;
+  const hum = parse(text);
+  if (hum.channels.length === 0) return;
+  const resumeStep = scheduler ? scheduler.currentStep : 0;
+  if (scheduler) scheduler.stop();
+  buildGraph(hum);
+  scheduler = new Scheduler(audioCtx, hum, channelNodes);
+  scheduler.start(resumeStep);
+  applyBtn.classList.remove('visible');
+}
+
+applyBtn.addEventListener('click', applyChanges);
+
+async function startPlayback() {
+  ensureAudioCtx();
+  await audioCtx.resume();
+  // Wait until the audio clock is actually advancing (handles fresh start AND resume from idle)
+  const t0 = audioCtx.currentTime;
+  await new Promise(resolve => {
+    const check = () => {
+      if (audioCtx.currentTime > t0) resolve();
+      else requestAnimationFrame(check);
+    };
+    requestAnimationFrame(check);
+    setTimeout(resolve, 500);
+  });
+  const text = editor.value;
+  const hum = parse(text);
+
+  if (hum.channels.length === 0) return;
+
+  buildGraph(hum);
+  scheduler = new Scheduler(audioCtx, hum, channelNodes);
+  scheduler.start();
+  isPlaying = true;
+  applyBtn.classList.remove('visible');
+  playBtn.textContent = 'stop';
+  playBtn.classList.add('playing');
+}
+
+function stopPlayback() {
+  if (scheduler) { scheduler.stop(); scheduler = null; }
+  teardownGraph();
+  isPlaying = false;
+  applyBtn.classList.remove('visible');
+  playBtn.textContent = 'play';
+  playBtn.classList.remove('playing');
+}
+
+// ── Init ────────────────────────────────────────────────────────────
+
+const DEFAULT_HUM = `bpm 96
+
+-- glass
+lead tri
+  . . f#4 . a4 . c#5 . | d5 . . . c#5 . a4 .
+  . . d4 . f#4 . a4 .  | b4 . . . a4 . . .
+  . . b4 . d5 . f#5 .  | e5 . . . d5 . b4 .
+  . . c#5 . e5 . . .   | d5 . c#5 . a4 . . .
+  : vol .5
+
+arp sin
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 -- Dmaj7
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4
+  b2 d3 f#3 a3 f#3 d3 f#3 a3  -- Bm7
+  b2 d3 f#3 a3 f#3 d3 f#3 a3
+  g3 b3 d4 f#4 d4 b3 d4 f#4  -- Gmaj7
+  g3 b3 d4 f#4 d4 b3 d4 f#4
+  a3 c#4 e4 a4 e4 c#4 e4 a4  -- A
+  a3 c#4 e4 a4 e4 c#4 e4 b3
+  : vol .12 lpf 2k
+
+pad sin
+  d3 d3 d3 d3 d3 d3 d3 d3
+  d3 d3 d3 d3 d3 d3 d3 d3
+  b2 b2 b2 b2 b2 b2 b2 b2
+  b2 b2 b2 b2 b2 b2 b2 b2
+  g3 g3 g3 g3 g3 g3 g3 g3
+  g3 g3 g3 g3 g3 g3 g3 g3
+  a3 a3 a3 a3 a3 a3 a3 a3
+  a3 a3 a3 a3 a3 a3 a3 a3
+  : vol .08 lpf 600
+
+bass saw
+  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .
+  b1 . . b1 . . b2 . | b1 . . b1 . . b2 .
+  g2 . . g2 . . g3 . | g2 . . g2 . . g3 .
+  a2 . . a2 . . a3 . | a2 . . a2 . . e2 .
+  : lpf 200
+
+kick noise x . . . . . x . | . . . . x . . .
+  : lpf 50 decay .06
+
+hat noise . . x . . . x . | . . x . . . x .
+  : hpf 8k decay .03`;
+
+editor.value = DEFAULT_HUM;
+onInput();
+
+// ── Save / Load ─────────────────────────────────────────────────────
+
+function getTitle() {
+  const match = editor.value.match(/--\s*(.+)/);
+  return match ? match[1].trim().replace(/[^a-zA-Z0-9_\- ]/g, '').replace(/\s+/g, '-') : 'untitled';
+}
+
+function saveFile() {
+  const blob = new Blob([editor.value], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = getTitle() + '.hum';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('save-btn').addEventListener('click', saveFile);
+
+const fileInput = document.createElement('input');
+fileInput.type = 'file';
+fileInput.accept = '.hum';
+fileInput.style.display = 'none';
+document.body.appendChild(fileInput);
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) loadFile(fileInput.files[0]);
+  fileInput.value = '';
+});
+document.getElementById('load-btn').addEventListener('click', () => fileInput.click());
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    editor.value = reader.result;
+    onInput();
+  };
+  reader.readAsText(file);
+}
+
+// Drag and drop
+document.addEventListener('dragover', (e) => { e.preventDefault(); });
+document.addEventListener('drop', (e) => {
+  e.preventDefault();
+  const file = e.dataTransfer.files[0];
+  if (file && file.name.endsWith('.hum')) loadFile(file);
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    if (isPlaying && applyBtn.classList.contains('visible')) {
+      applyChanges();
+    } else {
+      playBtn.click();
+    }
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault();
+    saveFile();
+  }
+});
+</script>
+</body>
+</html>

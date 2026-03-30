@@ -1,0 +1,144 @@
+# hum — spec
+
+A fantasy synth. One HTML file, zero dependencies. You open it, you type, you hear music.
+
+## DSL
+
+```
+bpm 96
+
+-- glass
+lead tri
+  . . f#4 . a4 . c#5 .
+  d5 . . . c#5 . a4 .
+  : vol .5
+
+bass saw c2 . e2 . g2 . c2 e2 : lpf 400
+kick noise x . . x . . x . : lpf 55 decay .05
+```
+
+### Structure
+
+A hum is a sequence of lines. Each line is one of:
+
+- **blank** — ignored
+- **comment** — `-- text`, rest of line ignored
+- **bpm** — `bpm <number>`, sets tempo (20-999)
+- **channel** — `<name> <waveform> <pattern> : <effects>`
+- **continuation** — indented line, appends to previous channel
+
+### Channel definition
+
+```
+<name> <waveform> <pattern tokens...> : <effect pairs...>
+```
+
+- **name** — any identifier (`kick`, `bass`, `lead`, `pad2`)
+- **waveform** — one of: `sin`, `tri`, `sqr`, `saw`, `noise`
+- **pattern** — space-separated tokens (see below)
+- `:` — separates pattern from effects (optional if no effects)
+- **effects** — space-separated name-value pairs (see below)
+
+### Pattern tokens
+
+- **note** — `c4`, `eb3`, `f#5` (letter + optional sharp/flat + octave 0-8)
+- **trigger** — `x` (for noise/percussive hits)
+- **rest** — `.` (also `_`)
+- **bar line** — `|` (cosmetic, ignored by parser)
+
+Each token is one step. A step is an 8th note. 8 steps = 1 bar of 4/4.
+
+All channels play simultaneously. Each pattern loops independently. Different lengths create polyrhythmic drift.
+
+### Effects
+
+After the `:`, name-value pairs separated by spaces:
+
+| effect | value | description |
+|--------|-------|-------------|
+| `lpf`  | hz    | low-pass filter cutoff |
+| `hpf`  | hz    | high-pass filter cutoff |
+| `decay`| seconds | percussive envelope decay time |
+| `vol`  | 0-1   | channel volume |
+
+Number shorthands: `.05` for `0.05`, `6k` for `6000`
+
+### Multi-line continuation
+
+Indented lines append to the previous channel:
+
+```
+lead tri
+  c4 e4 g4 c5     -- bar 1
+  g4 e4 c4 .      -- bar 2
+  : vol .5
+```
+
+Is equivalent to `lead tri c4 e4 g4 c5 g4 e4 c4 . : vol .5`. Comments are stripped per-line before joining.
+
+### Limits
+
+- 8 channels max
+- Monophonic per channel (chords require multiple channels)
+- Octave range: 0-8 (C0 ~16Hz to B8 ~7902Hz), A4 = 440Hz
+- Sharps (`c#4`) and flats (`eb4`, `bb3`)
+- No nesting, no expressions, no variables
+- `.hum` files are plain text — the DSL is the format
+
+## Audio engine
+
+- Web Audio API, single `AudioContext`
+- Per-channel signal chain: `source → envelopeGain → [lpf] → [hpf] → volumeGain → analyser → compressor → destination`
+- Pitched waveforms: continuous `OscillatorNode`, frequency set per step
+- Noise: looped `AudioBufferSourceNode` (2s random buffer)
+- `DynamicsCompressorNode` on master bus prevents clipping
+- 3ms attack/release ramps on all gain changes to prevent clicks
+
+## Scheduler
+
+- Chris Wilson lookahead pattern: JS timer schedules Web Audio events ahead of time
+- `setInterval` runs in a Web Worker (immune to background tab throttling)
+- 25ms tick interval, 150ms lookahead window
+- Step times computed from base (`startTime + step * stepDuration`), no accumulation drift
+- Pre-schedules 1 second of steps on start to survive Worker startup latency
+- First play: polls until `audioCtx.currentTime` advances after `resume()`
+
+## Editor
+
+- Full-screen `<textarea>` with transparent text
+- Syntax highlight overlay renders colored HTML behind the textarea
+- Cyberdream color palette (scottmckendry)
+- Scroll sync between textarea and highlight layer
+- Tab key inserts 2 spaces, 300ms debounce on input
+- Inline error highlighting: invalid tokens get red wavy underline
+
+### Syntax highlighting colors
+
+comments: grey, `bpm`: magenta, waveforms: cyan, channel names: white dim, notes: green, triggers: pink, rests: grey dim, bar lines: grey dim, colon: purple, effects: blue, numbers: orange
+
+### Note playhead
+
+Playing notes get inverse video (cyan background, dark text). Playing rests brighten. Updated every frame via `data-ch` and `data-s` attributes on pattern token spans.
+
+## Controls
+
+- **play/stop** — button or Cmd+Enter
+- **apply** — appears when editing during playback, applies changes (or Cmd+Enter while playing)
+- **load** — opens file picker for `.hum` files
+- **save** — downloads `.hum` file (or Cmd+S), named from first `-- comment`
+- **drag-and-drop** `.hum` file onto the page to load it
+
+## Visualizer
+
+- Canvas waveform strip (48px) in footer
+- Step dot indicator: one dot per step of longest pattern
+- Downbeat dots (every 8 steps) brighter than offbeats
+- Active dot: cyan
+
+## Branches
+
+- `main` — stable
+- `live-coding` — in-place audio updates, grace period, beat grid sync
+- `mobile-ui` — input toolbar, safe areas, touch-friendly layout
+- `note-drag` — pitch shift by dragging notes
+- `bottom-bar-redesign` — floating translucent footer
