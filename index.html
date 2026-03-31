@@ -142,8 +142,6 @@ html, body {
 
 #controls button:hover { color: var(--fg); }
 #play-btn.playing { color: var(--cyan); }
-#apply-btn { display: none; }
-#apply-btn.visible { display: inline; color: var(--orange); }
 
 #step-bar {
   display: flex;
@@ -194,7 +192,6 @@ html, body {
     </div>
     <div id="controls">
       <button id="play-btn">play</button>
-      <button id="apply-btn">apply</button>
       <div id="spacer2"></div>
       <button id="load-btn">load</button>
       <button id="save-btn">save</button>
@@ -626,7 +623,6 @@ drawViz();
 const editor = document.getElementById('editor');
 const highlight = document.getElementById('highlight');
 const playBtn = document.getElementById('play-btn');
-const applyBtn = document.getElementById('apply-btn');
 const channelInfo = document.getElementById('channel-info');
 let debounceTimer = null;
 
@@ -817,8 +813,81 @@ function onInput() {
   const maxLen = hum.channels.reduce((m, c) => Math.max(m, c.pattern.length), 0);
   if (maxLen !== stepDots.length) buildStepDots(maxLen);
 
-  // Mark pending changes while playing
-  if (isPlaying) applyBtn.classList.add('visible');
+  // Live update while playing
+  if (isPlaying && audioCtx) {
+    liveUpdate(hum);
+  }
+}
+
+// ── Live Coding ─────────────────────────────────────────────────────
+
+let lastParseKey = '';
+let graceTimer = null;
+
+function humKey(hum) {
+  return hum.bpm + '|' + hum.channels.map(c =>
+    c.name + c.waveform +
+    c.pattern.map(s => s.type === 'note' ? s.freq : s.type).join(',') +
+    JSON.stringify(c.effects)
+  ).join('|');
+}
+
+function canUpdateInPlace(newChannels) {
+  if (channelNodes.length !== newChannels.length) return false;
+  for (let i = 0; i < channelNodes.length; i++) {
+    const old = channelNodes[i].channel;
+    const nw = newChannels[i];
+    if (old.waveform !== nw.waveform) return false;
+    if ((old.effects.lpf !== null) !== (nw.effects.lpf !== null)) return false;
+    if ((old.effects.hpf !== null) !== (nw.effects.hpf !== null)) return false;
+  }
+  return true;
+}
+
+function updateInPlace(hum) {
+  for (let i = 0; i < channelNodes.length; i++) {
+    const node = channelNodes[i];
+    const ch = hum.channels[i];
+    node.channel = ch;
+    if (node.filterLPF) node.filterLPF.frequency.value = ch.effects.lpf;
+    if (node.filterHPF) node.filterHPF.frequency.value = ch.effects.hpf;
+    node.volumeGain.gain.value = ch.effects.vol;
+  }
+  if (scheduler) scheduler.dur = 60 / hum.bpm / 2;
+}
+
+function fullRebuild(hum) {
+  if (scheduler) scheduler.stop();
+  const t = audioCtx.currentTime;
+  for (const node of channelNodes) {
+    node.envelopeGain.gain.cancelScheduledValues(t);
+    node.envelopeGain.gain.setTargetAtTime(0, t, 0.005);
+    node.volumeGain.gain.setTargetAtTime(0, t, 0.005);
+  }
+  setTimeout(() => {
+    buildGraph(hum);
+    scheduler = new Scheduler(audioCtx, channelNodes, 60 / hum.bpm / 2);
+    scheduler.start();
+  }, 30);
+}
+
+function liveUpdate(hum) {
+  const key = humKey(hum);
+  if (key === lastParseKey) return;
+  lastParseKey = key;
+  if (canUpdateInPlace(hum.channels)) {
+    updateInPlace(hum);
+  } else if (hum.channels.length < channelNodes.length && hum.errors.length > 0) {
+    if (!graceTimer) {
+      graceTimer = setTimeout(() => {
+        graceTimer = null;
+        if (isPlaying && audioCtx) fullRebuild(hum);
+      }, 500);
+    }
+  } else if (hum.channels.length > 0) {
+    if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; }
+    fullRebuild(hum);
+  }
 }
 
 // ── Play / Stop ─────────────────────────────────────────────────────
@@ -830,20 +899,6 @@ playBtn.addEventListener('click', () => {
     startPlayback();
   }
 });
-
-function applyChanges() {
-  if (!isPlaying || !audioCtx) return;
-  const text = editor.value;
-  const hum = parse(text);
-  if (hum.channels.length === 0) return;
-  if (scheduler) scheduler.stop();
-  buildGraph(hum);
-  scheduler = new Scheduler(audioCtx, channelNodes, 60 / hum.bpm / 2);
-  scheduler.start();
-  applyBtn.classList.remove('visible');
-}
-
-applyBtn.addEventListener('click', applyChanges);
 
 async function startPlayback() {
   ensureAudioCtx();
@@ -857,7 +912,6 @@ async function startPlayback() {
   scheduler = new Scheduler(audioCtx, channelNodes, 60 / hum.bpm / 2);
   scheduler.start();
   isPlaying = true;
-  applyBtn.classList.remove('visible');
   playBtn.textContent = 'stop';
   playBtn.classList.add('playing');
 }
@@ -866,7 +920,6 @@ function stopPlayback() {
   if (scheduler) { scheduler.stop(); scheduler = null; }
   teardownGraph();
   isPlaying = false;
-  applyBtn.classList.remove('visible');
   playBtn.textContent = 'play';
   playBtn.classList.remove('playing');
 }
@@ -971,11 +1024,7 @@ document.addEventListener('drop', (e) => {
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
-    if (isPlaying && applyBtn.classList.contains('visible')) {
-      applyChanges();
-    } else {
-      playBtn.click();
-    }
+    playBtn.click();
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();
