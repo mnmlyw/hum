@@ -68,9 +68,6 @@ html, body {
 #highlight .fx { color: var(--blue); }
 #highlight .nu { color: var(--orange); }
 #highlight .er { text-decoration: underline wavy var(--error); }
-#highlight .playing.nt,
-#highlight .playing.tr { background: var(--cyan); color: var(--bg); border-radius: 2px; }
-#highlight .playing.rs { opacity: 0.7; }
 
 #editor {
   position: absolute;
@@ -492,88 +489,56 @@ function teardownGraph() {
 // ── Scheduler ───────────────────────────────────────────────────────
 
 class Scheduler {
-  constructor(audioCtx, hum, channelNodes) {
-    this.audioCtx = audioCtx;
-    this.hum = hum;
-    this.channelNodes = channelNodes;
-    this.stepDuration = 60 / hum.bpm / 2; // 8th note
-    this.currentStep = 0;
-    this.startTime = null;
+  constructor(audioCtx, channelNodes, stepDuration) {
+    this.ctx = audioCtx;
+    this.nodes = channelNodes;
+    this.dur = stepDuration;
+    this.step = 0;
+    this.t0 = 0;
+    this.tid = null;
   }
 
-  start(fromStep = 0) {
-    const now = this.audioCtx.currentTime;
-    this.startTime = now + 0.1 - (fromStep * this.stepDuration);
-    this.currentStep = fromStep;
-    // Pre-schedule a full second to survive Worker startup latency
-    while (this.stepTime(this.currentStep) < now + 1.0) {
-      this.scheduleStep(this.stepTime(this.currentStep));
-      this.currentStep++;
-    }
-    this._onTick = () => this.tick();
-    timerWorker.addEventListener('message', this._onTick);
-    timerWorker.postMessage({ cmd: 'start', interval: TICK_MS });
+  start() {
+    this.t0 = this.ctx.currentTime;
+    this.step = 0;
+    this.tick();
   }
 
   stop() {
-    timerWorker.postMessage({ cmd: 'stop' });
-    if (this._onTick) {
-      timerWorker.removeEventListener('message', this._onTick);
-      this._onTick = null;
-    }
-  }
-
-  // Compute step time from base — no floating point accumulation
-  stepTime(step) {
-    return this.startTime + step * this.stepDuration;
+    if (this.tid !== null) { clearTimeout(this.tid); this.tid = null; }
   }
 
   tick() {
-    const now = this.audioCtx.currentTime;
-    while (this.stepTime(this.currentStep) < now + SCHEDULE_AHEAD) {
-      this.scheduleStep(this.stepTime(this.currentStep));
-      this.currentStep++;
-    }
-  }
-
-  scheduleStep(time) {
-    for (const node of this.channelNodes) {
-      const ch = node.channel;
-      const stepIdx = this.currentStep % ch.pattern.length;
-      const step = ch.pattern[stepIdx];
-      const gain = node.envelopeGain.gain;
-
-      if (step.type === 'rest') {
-        gain.setTargetAtTime(0, time, 0.003);
-      } else {
-        // Set frequency for pitched oscillators
-        if (step.type === 'note' && ch.waveform !== 'noise') {
-          node.source.frequency.setValueAtTime(step.freq, time);
-        }
-
-        // Trigger envelope
-        gain.cancelScheduledValues(time);
-        gain.setValueAtTime(0.001, time);
-        gain.linearRampToValueAtTime(1.0, time + 0.003);
-
-        if (ch.effects.decay !== null) {
-          gain.exponentialRampToValueAtTime(0.001, time + ch.effects.decay + 0.003);
+    const now = this.ctx.currentTime;
+    const ahead = now + SCHEDULE_AHEAD;
+    while (this.t0 + this.step * this.dur < ahead) {
+      const t = this.t0 + this.step * this.dur;
+      for (const node of this.nodes) {
+        const ch = node.channel;
+        const s = ch.pattern[this.step % ch.pattern.length];
+        const g = node.envelopeGain.gain;
+        g.cancelScheduledValues(t);
+        if (s.type === 'rest') {
+          g.setValueAtTime(0, t);
         } else {
-          // Hold for step duration, then quick release
-          const holdEnd = time + this.stepDuration - 0.005;
-          if (holdEnd > time + 0.003) {
-            gain.setValueAtTime(1.0, holdEnd);
-            gain.linearRampToValueAtTime(0.001, time + this.stepDuration);
+          if (s.type === 'note' && ch.waveform !== 'noise')
+            node.source.frequency.setValueAtTime(s.freq, t);
+          g.setValueAtTime(1, t);
+          if (ch.effects.decay != null) {
+            g.exponentialRampToValueAtTime(0.001, t + ch.effects.decay);
+          } else {
+            g.setValueAtTime(1, t + this.dur - 0.01);
+            g.linearRampToValueAtTime(0, t + this.dur);
           }
         }
       }
+      this.step++;
     }
+    this.tid = setTimeout(() => this.tick(), TICK_MS);
   }
 
   getVisualStep() {
-    if (this.startTime === null) return 0;
-    const elapsed = this.audioCtx.currentTime - this.startTime;
-    return Math.floor(elapsed / this.stepDuration);
+    return Math.floor((this.ctx.currentTime - this.t0) / this.dur);
   }
 }
 
@@ -583,8 +548,7 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const stepBar = document.getElementById('step-bar');
 let stepDots = [];
-let stepSpanMap = {};
-let prevPlaying = [];
+let vizBuffer = null;
 
 function resizeCanvas() {
   canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -617,15 +581,14 @@ function drawViz() {
 
   if (analyserNode && isPlaying) {
     const bufLen = analyserNode.frequencyBinCount;
-    const dataArray = new Uint8Array(bufLen);
-    analyserNode.getByteTimeDomainData(dataArray);
+    if (!vizBuffer || vizBuffer.length !== bufLen) vizBuffer = new Uint8Array(bufLen);
+    analyserNode.getByteTimeDomainData(vizBuffer);
 
-    // Fill waveform
     ctx.beginPath();
     const sliceWidth = w / bufLen;
     let x = 0;
     for (let i = 0; i < bufLen; i++) {
-      const v = dataArray[i] / 128.0;
+      const v = vizBuffer[i] / 128.0;
       const y = (v * h) / 2;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
@@ -635,39 +598,22 @@ function drawViz() {
     ctx.strokeStyle = 'rgba(94, 241, 255, 0.35)';
     ctx.lineWidth = 1;
     ctx.stroke();
-
-    // Soft fill under the waveform
     ctx.lineTo(w, h);
     ctx.lineTo(0, h);
     ctx.closePath();
     ctx.fillStyle = 'rgba(94, 241, 255, 0.04)';
     ctx.fill();
 
-    // Update step dots + note playhead
+    // Update step dots
     if (scheduler && stepDots.length > 0) {
       const vs = scheduler.getVisualStep();
       const activeIdx = vs % stepDots.length;
       for (let i = 0; i < stepDots.length; i++) {
         stepDots[i].classList.toggle('active', i === activeIdx);
       }
-
-      // Highlight playing notes in editor
-      for (const el of prevPlaying) el.classList.remove('playing');
-      prevPlaying = [];
-      for (let i = 0; i < channelNodes.length; i++) {
-        const ch = channelNodes[i].channel;
-        const stepIdx = vs % ch.pattern.length;
-        const el = stepSpanMap[i + '-' + stepIdx];
-        if (el) {
-          el.classList.add('playing');
-          prevPlaying.push(el);
-        }
-      }
     }
   } else {
     for (const dot of stepDots) dot.classList.remove('active');
-    for (const el of prevPlaying) el.classList.remove('playing');
-    prevPlaying = [];
   }
 
   requestAnimationFrame(drawViz);
@@ -696,31 +642,21 @@ function span(cls, text) {
   return `<span class="${cls}">${esc(text)}</span>`;
 }
 
-function ptSpan(cls, text, ch, s) {
-  if (ch !== null && s !== null) {
-    return `<span class="pt ${cls}" data-ch="${ch}" data-s="${s}">${esc(text)}</span>`;
-  }
-  return span(cls, text);
-}
-
-function highlightTokens(code, comment, chIdx, stepCounter) {
-  // Highlight pattern tokens and effects in a code fragment
+function highlightTokens(code, comment) {
   const colonIdx = code.indexOf(':');
   const patPart = colonIdx !== -1 ? code.slice(0, colonIdx) : code;
   const fxPart = colonIdx !== -1 ? code.slice(colonIdx) : '';
   let out = '';
-  const ch = chIdx !== undefined ? chIdx : null;
 
   const patTokens = patPart.split(/(\s+)/);
   for (const ct of patTokens) {
     if (ct.match(/^\s+$/)) { out += esc(ct); continue; }
     const low = ct.toLowerCase();
-    const s = (stepCounter && ch !== null) ? stepCounter.n : null;
-    if (low === '.' || low === '_') { out += ptSpan('rs', ct, ch, s); if (stepCounter) stepCounter.n++; }
-    else if (low === 'x') { out += ptSpan('tr', ct, ch, s); if (stepCounter) stepCounter.n++; }
+    if (low === '.' || low === '_') out += span('rs', ct);
+    else if (low === 'x') out += span('tr', ct);
     else if (low === '|' || low === ',') out += span('bl', ct);
-    else if (NOTE_FREQ[low] !== undefined) { out += ptSpan('nt', ct, ch, s); if (stepCounter) stepCounter.n++; }
-    else { out += ptSpan('er', ct, ch, s); if (stepCounter) stepCounter.n++; }
+    else if (NOTE_FREQ[low] !== undefined) out += span('nt', ct);
+    else out += span('er', ct);
   }
 
   if (fxPart) {
@@ -738,7 +674,7 @@ function highlightTokens(code, comment, chIdx, stepCounter) {
   return out + (comment ? span('cm', comment) : '');
 }
 
-function highlightLine(line, prevIsChannel, chIdx, stepCounter) {
+function highlightLine(line, prevIsChannel) {
   // Comment
   const commentIdx = line.indexOf('--');
   let code = line, comment = '';
@@ -756,7 +692,7 @@ function highlightLine(line, prevIsChannel, chIdx, stepCounter) {
   // Continuation line (indented)
   if (code.match(/^[ \t]+\S/) && prevIsChannel) {
     const lead = code.match(/^(\s*)/)[1];
-    return esc(lead) + highlightTokens(code.trimStart(), comment, chIdx, stepCounter);
+    return esc(lead) + highlightTokens(code.trimStart(), comment);
   }
 
   // BPM line
@@ -795,7 +731,7 @@ function highlightLine(line, prevIsChannel, chIdx, stepCounter) {
     // Pattern + effects after the header
     const remainder = code.trimStart().slice(restStart);
     if (remainder.trim()) {
-      out += highlightTokens(remainder, '', chIdx, stepCounter);
+      out += highlightTokens(remainder, '');
     }
 
     return out + (comment ? span('cm', comment) : '');
@@ -827,31 +763,20 @@ function updateHighlight() {
   const text = editor.value;
   const lines = text.split('\n');
   let prevIsChannel = false;
-  let chIdx = -1;
-  let stepCounter = null;
   const out = [];
   for (const line of lines) {
+    out.push(highlightLine(line, prevIsChannel));
     const trimmed = line.replace(/--.*$/, '').trim();
     const tokens = trimmed.split(/\s+/);
     if (tokens.length >= 2 && WAVEFORMS.includes((tokens[1] || '').toLowerCase())) {
-      chIdx++;
-      stepCounter = { n: 0 };
       prevIsChannel = true;
     } else if (line.match(/^[ \t]+\S/) && prevIsChannel) {
-      // continuation — keep chIdx and stepCounter
+      // continuation
     } else {
       prevIsChannel = false;
-      stepCounter = null;
     }
-    out.push(highlightLine(line, prevIsChannel, chIdx, stepCounter));
   }
   highlight.innerHTML = out.join('\n') + '\n';
-
-  // Build lookup for playhead
-  stepSpanMap = {};
-  for (const el of highlight.querySelectorAll('.pt')) {
-    stepSpanMap[el.dataset.ch + '-' + el.dataset.s] = el;
-  }
 }
 
 // Sync scroll
@@ -911,11 +836,10 @@ function applyChanges() {
   const text = editor.value;
   const hum = parse(text);
   if (hum.channels.length === 0) return;
-  const resumeStep = scheduler ? scheduler.currentStep : 0;
   if (scheduler) scheduler.stop();
   buildGraph(hum);
-  scheduler = new Scheduler(audioCtx, hum, channelNodes);
-  scheduler.start(resumeStep);
+  scheduler = new Scheduler(audioCtx, channelNodes, 60 / hum.bpm / 2);
+  scheduler.start();
   applyBtn.classList.remove('visible');
 }
 
@@ -924,23 +848,13 @@ applyBtn.addEventListener('click', applyChanges);
 async function startPlayback() {
   ensureAudioCtx();
   await audioCtx.resume();
-  // Wait until the audio clock is actually advancing (handles fresh start AND resume from idle)
-  const t0 = audioCtx.currentTime;
-  await new Promise(resolve => {
-    const check = () => {
-      if (audioCtx.currentTime > t0) resolve();
-      else requestAnimationFrame(check);
-    };
-    requestAnimationFrame(check);
-    setTimeout(resolve, 500);
-  });
   const text = editor.value;
   const hum = parse(text);
 
   if (hum.channels.length === 0) return;
 
   buildGraph(hum);
-  scheduler = new Scheduler(audioCtx, hum, channelNodes);
+  scheduler = new Scheduler(audioCtx, channelNodes, 60 / hum.bpm / 2);
   scheduler.start();
   isPlaying = true;
   applyBtn.classList.remove('visible');
