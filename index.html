@@ -68,6 +68,9 @@ html, body {
 #highlight .fx { color: var(--blue); }
 #highlight .nu { color: var(--orange); }
 #highlight .er { text-decoration: underline wavy var(--error); }
+#highlight .playing.nt,
+#highlight .playing.tr { background: var(--cyan); color: var(--bg); border-radius: 2px; }
+#highlight .playing.rs { opacity: 0.7; }
 
 #editor {
   position: absolute;
@@ -546,6 +549,8 @@ const ctx = canvas.getContext('2d');
 const stepBar = document.getElementById('step-bar');
 let stepDots = [];
 let vizBuffer = null;
+let stepSpanMap = {};
+let prevPlaying = [];
 
 function resizeCanvas() {
   canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -601,16 +606,25 @@ function drawViz() {
     ctx.fillStyle = 'rgba(94, 241, 255, 0.04)';
     ctx.fill();
 
-    // Update step dots
+    // Update step dots + note playhead
     if (scheduler && stepDots.length > 0) {
       const vs = scheduler.getVisualStep();
       const activeIdx = vs % stepDots.length;
       for (let i = 0; i < stepDots.length; i++) {
         stepDots[i].classList.toggle('active', i === activeIdx);
       }
+      for (const el of prevPlaying) el.classList.remove('playing');
+      prevPlaying = [];
+      for (let i = 0; i < channelNodes.length; i++) {
+        const ch = channelNodes[i].channel;
+        const el = stepSpanMap[i + '-' + (vs % ch.pattern.length)];
+        if (el) { el.classList.add('playing'); prevPlaying.push(el); }
+      }
     }
   } else {
     for (const dot of stepDots) dot.classList.remove('active');
+    for (const el of prevPlaying) el.classList.remove('playing');
+    prevPlaying = [];
   }
 
   requestAnimationFrame(drawViz);
@@ -638,21 +652,30 @@ function span(cls, text) {
   return `<span class="${cls}">${esc(text)}</span>`;
 }
 
-function highlightTokens(code, comment) {
+function ptSpan(cls, text, ch, s) {
+  if (ch !== null && s !== null) {
+    return `<span class="pt ${cls}" data-ch="${ch}" data-s="${s}">${esc(text)}</span>`;
+  }
+  return span(cls, text);
+}
+
+function highlightTokens(code, comment, chIdx, stepCounter) {
   const colonIdx = code.indexOf(':');
   const patPart = colonIdx !== -1 ? code.slice(0, colonIdx) : code;
   const fxPart = colonIdx !== -1 ? code.slice(colonIdx) : '';
   let out = '';
+  const ch = chIdx !== undefined ? chIdx : null;
 
   const patTokens = patPart.split(/(\s+)/);
   for (const ct of patTokens) {
     if (ct.match(/^\s+$/)) { out += esc(ct); continue; }
     const low = ct.toLowerCase();
-    if (low === '.' || low === '_') out += span('rs', ct);
-    else if (low === 'x') out += span('tr', ct);
+    const s = (stepCounter && ch !== null) ? stepCounter.n : null;
+    if (low === '.' || low === '_') { out += ptSpan('rs', ct, ch, s); if (stepCounter) stepCounter.n++; }
+    else if (low === 'x') { out += ptSpan('tr', ct, ch, s); if (stepCounter) stepCounter.n++; }
     else if (low === '|' || low === ',') out += span('bl', ct);
-    else if (NOTE_FREQ[low] !== undefined) out += span('nt', ct);
-    else out += span('er', ct);
+    else if (NOTE_FREQ[low] !== undefined) { out += ptSpan('nt', ct, ch, s); if (stepCounter) stepCounter.n++; }
+    else { out += ptSpan('er', ct, ch, s); if (stepCounter) stepCounter.n++; }
   }
 
   if (fxPart) {
@@ -670,7 +693,7 @@ function highlightTokens(code, comment) {
   return out + (comment ? span('cm', comment) : '');
 }
 
-function highlightLine(line, prevIsChannel) {
+function highlightLine(line, prevIsChannel, chIdx, stepCounter) {
   // Comment
   const commentIdx = line.indexOf('--');
   let code = line, comment = '';
@@ -688,7 +711,7 @@ function highlightLine(line, prevIsChannel) {
   // Continuation line (indented)
   if (code.match(/^[ \t]+\S/) && prevIsChannel) {
     const lead = code.match(/^(\s*)/)[1];
-    return esc(lead) + highlightTokens(code.trimStart(), comment);
+    return esc(lead) + highlightTokens(code.trimStart(), comment, chIdx, stepCounter);
   }
 
   // BPM line
@@ -727,7 +750,7 @@ function highlightLine(line, prevIsChannel) {
     // Pattern + effects after the header
     const remainder = code.trimStart().slice(restStart);
     if (remainder.trim()) {
-      out += highlightTokens(remainder, '');
+      out += highlightTokens(remainder, '', chIdx, stepCounter);
     }
 
     return out + (comment ? span('cm', comment) : '');
@@ -759,20 +782,29 @@ function updateHighlight() {
   const text = editor.value;
   const lines = text.split('\n');
   let prevIsChannel = false;
+  let chIdx = -1;
+  let stepCounter = null;
   const out = [];
   for (const line of lines) {
-    out.push(highlightLine(line, prevIsChannel));
     const trimmed = line.replace(/--.*$/, '').trim();
     const tokens = trimmed.split(/\s+/);
     if (tokens.length >= 2 && WAVEFORMS.includes((tokens[1] || '').toLowerCase())) {
+      chIdx++;
+      stepCounter = { n: 0 };
       prevIsChannel = true;
     } else if (line.match(/^[ \t]+\S/) && prevIsChannel) {
       // continuation
     } else {
       prevIsChannel = false;
+      stepCounter = null;
     }
+    out.push(highlightLine(line, prevIsChannel, chIdx, stepCounter));
   }
   highlight.innerHTML = out.join('\n') + '\n';
+  stepSpanMap = {};
+  for (const el of highlight.querySelectorAll('.pt')) {
+    stepSpanMap[el.dataset.ch + '-' + el.dataset.s] = el;
+  }
 }
 
 // Sync scroll
