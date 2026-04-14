@@ -1226,16 +1226,18 @@ document.addEventListener('keydown', (e) => {
 if (new URLSearchParams(location.search).has('test')) {
   window.__hum = {
     parse,
+    LPF_OPEN, HPF_OPEN, SCHEDULE_AHEAD,
     get audioCtx() { return audioCtx; },
+    get analyser() { return analyserNode; },
     get scheduler() { return scheduler; },
     get channelNodes() { return channelNodes; },
     get channelNodesByName() { return channelNodesByName; },
     get isPlaying() { return isPlaying; },
-    setEditor(text) {
+    // Bypass the 300ms input debounce for deterministic tests.
+    applyEdit(text) {
       editor.value = text;
-      editor.dispatchEvent(new Event('input'));
-    },
-    triggerParse() { onInput(); }
+      onInput();
+    }
   };
 }
 </script>

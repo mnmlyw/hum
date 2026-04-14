@@ -2,8 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests-e2e',
-  fullyParallel: false,
-  workers: 1,
+  fullyParallel: true,
   reporter: 'list',
   use: {
     baseURL: `file://${new URL('./', import.meta.url).pathname}`,
