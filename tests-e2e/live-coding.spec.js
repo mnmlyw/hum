@@ -42,14 +42,18 @@ test('playhead highlights the current note on each channel', async ({ page }) =>
   await setEditor(page, 'bpm 120\npluck sin c4 e4 g4 c5');
   await startPlayback(page);
 
-  // Sample the .playing token across several ticks — each of {0,1,2,3} must appear.
+  // Every actual note token must appear as .playing at some point during one
+  // pattern cycle. Matching by text catches "phantom token consumes a step
+  // index" regressions that looking at data-s alone would miss.
+  const expected = new Set(['c4', 'e4', 'g4', 'c5']);
   const seen = new Set();
-  for (let i = 0; i < 40 && seen.size < 4; i++) {
-    const s = await page.$eval('.pt.playing', el => el.dataset.s).catch(() => null);
-    if (s !== null) seen.add(s);
-    await page.waitForTimeout(60);
+  for (let i = 0; i < 80 && seen.size < expected.size; i++) {
+    const texts = await page.$$eval('.pt.playing', els =>
+      els.map(e => e.textContent.trim()).filter(Boolean));
+    for (const t of texts) if (expected.has(t)) seen.add(t);
+    await page.waitForTimeout(40);
   }
-  expect([...seen].sort()).toEqual(['0', '1', '2', '3']);
+  expect([...seen].sort()).toEqual([...expected].sort());
 });
 
 test('changing bpm preserves beat phase (no jump)', async ({ page }) => {
@@ -167,14 +171,21 @@ test('c5 on single-line channel def is highlighted (regression)', async ({ page 
   await setEditor(page, 'bpm 120\npluck sin c4 e4 g4 c5');
   await startPlayback(page);
 
-  // Collect the .pt spans that appear as .playing across 50 samples.
-  const seen = new Set();
-  for (let i = 0; i < 50 && seen.size < 4; i++) {
-    const s = await page.$eval('.pt.playing', el => el.dataset.s).catch(() => null);
-    if (s !== null) seen.add(s);
-    await page.waitForTimeout(60);
+  // Before the fix, an empty phantom token after "pluck sin" consumed step 0,
+  // shifting c5 to data-s="4" where it never got highlighted.
+  // Check the c5 span itself receives .playing.
+  let c5Highlighted = false;
+  for (let i = 0; i < 80 && !c5Highlighted; i++) {
+    c5Highlighted = await page.evaluate(() => {
+      const spans = document.querySelectorAll('.pt.nt');
+      for (const s of spans) {
+        if (s.textContent.trim() === 'c5' && s.classList.contains('playing')) return true;
+      }
+      return false;
+    });
+    await page.waitForTimeout(40);
   }
-  expect(seen.has('3')).toBe(true); // the c5 slot
+  expect(c5Highlighted).toBe(true);
 });
 
 test('parse errors do not kill playback', async ({ page }) => {
