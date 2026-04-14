@@ -1221,6 +1221,23 @@ document.addEventListener('keydown', (e) => {
     saveFile();
   }
 });
+
+// Test hook — exposes runtime internals to Playwright when ?test=1
+if (new URLSearchParams(location.search).has('test')) {
+  window.__hum = {
+    parse,
+    get audioCtx() { return audioCtx; },
+    get scheduler() { return scheduler; },
+    get channelNodes() { return channelNodes; },
+    get channelNodesByName() { return channelNodesByName; },
+    get isPlaying() { return isPlaying; },
+    setEditor(text) {
+      editor.value = text;
+      editor.dispatchEvent(new Event('input'));
+    },
+    triggerParse() { onInput(); }
+  };
+}
 </script>
 </body>
 </html>
