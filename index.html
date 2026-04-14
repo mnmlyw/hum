@@ -387,10 +387,14 @@ function parse(text) {
 
 // ── Audio Engine ────────────────────────────────────────────────────
 
+const LPF_OPEN = 20000;
+const HPF_OPEN = 0;
+
 let audioCtx = null;
 let noiseBuffer = null;
 let analyserNode = null;
-let channelNodes = [];
+const channelNodes = [];         // ordered view (parse order); never reassigned
+const channelNodesByName = new Map(); // registry keyed by stable name#occurrence
 let scheduler = null;
 let isPlaying = false;
 
@@ -407,7 +411,6 @@ function ensureAudioCtx() {
     analyserNode = audioCtx.createAnalyser();
     analyserNode.fftSize = 2048;
     analyserNode.connect(compressor);
-    // Create noise buffer
     const size = audioCtx.sampleRate * 2;
     noiseBuffer = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
     const data = noiseBuffer.getChannelData(0);
@@ -416,57 +419,83 @@ function ensureAudioCtx() {
   if (audioCtx.state === 'suspended') audioCtx.resume();
 }
 
+function createSource(waveform) {
+  if (waveform === 'noise') {
+    const s = audioCtx.createBufferSource();
+    s.buffer = noiseBuffer;
+    s.loop = true;
+    return s;
+  }
+  const s = audioCtx.createOscillator();
+  s.type = WAVEFORM_MAP[waveform];
+  s.frequency.value = 0;
+  return s;
+}
+
+function createChannelNode(ch, registryKey) {
+  const source = createSource(ch.waveform);
+  const sourceGain = audioCtx.createGain();
+  sourceGain.gain.value = 1;
+  const envelopeGain = audioCtx.createGain();
+  envelopeGain.gain.value = 0;
+  const filterHPF = audioCtx.createBiquadFilter();
+  filterHPF.type = 'highpass';
+  filterHPF.Q.value = 0.707;
+  filterHPF.frequency.value = ch.effects.hpf !== null ? ch.effects.hpf : HPF_OPEN;
+  const filterLPF = audioCtx.createBiquadFilter();
+  filterLPF.type = 'lowpass';
+  filterLPF.Q.value = 0.707;
+  filterLPF.frequency.value = ch.effects.lpf !== null ? ch.effects.lpf : LPF_OPEN;
+  const volumeGain = audioCtx.createGain();
+  volumeGain.gain.value = ch.effects.vol;
+
+  source.connect(sourceGain);
+  sourceGain.connect(envelopeGain);
+  envelopeGain.connect(filterHPF);
+  filterHPF.connect(filterLPF);
+  filterLPF.connect(volumeGain);
+  volumeGain.connect(analyserNode);
+
+  source.start();
+
+  return {
+    source, sourceGain, envelopeGain,
+    filterLPF, filterHPF, volumeGain,
+    channel: ch, registryKey,
+    notBefore: 0,      // scheduler skips steps where t < notBefore
+    stoppedAt: Infinity // scheduler skips steps where t >= stoppedAt
+  };
+}
+
+function disconnectNode(node) {
+  try { node.source.stop(); } catch (e) {}
+  try { node.source.disconnect(); } catch (e) {}
+  try { node.sourceGain.disconnect(); } catch (e) {}
+  try { node.envelopeGain.disconnect(); } catch (e) {}
+  try { node.filterLPF.disconnect(); } catch (e) {}
+  try { node.filterHPF.disconnect(); } catch (e) {}
+  try { node.volumeGain.disconnect(); } catch (e) {}
+}
+
+// Assign stable registry keys that tolerate duplicate channel names:
+// first occurrence of "lead" is "lead"; second is "lead#2", etc.
+function keysFor(channels) {
+  const counts = {};
+  const keys = [];
+  for (const ch of channels) {
+    counts[ch.name] = (counts[ch.name] || 0) + 1;
+    keys.push(counts[ch.name] === 1 ? ch.name : `${ch.name}#${counts[ch.name]}`);
+  }
+  return keys;
+}
+
 function buildGraph(hum) {
   teardownGraph();
-  channelNodes = [];
-
-  for (const ch of hum.channels) {
-    let source;
-    if (ch.waveform === 'noise') {
-      source = audioCtx.createBufferSource();
-      source.buffer = noiseBuffer;
-      source.loop = true;
-      source.start();
-    } else {
-      source = audioCtx.createOscillator();
-      source.type = WAVEFORM_MAP[ch.waveform];
-      source.frequency.value = 0;
-      source.start();
-    }
-
-    const envelopeGain = audioCtx.createGain();
-    envelopeGain.gain.value = 0;
-
-    let lastNode = source;
-    lastNode.connect(envelopeGain);
-    lastNode = envelopeGain;
-
-    let filterLPF = null;
-    if (ch.effects.lpf !== null) {
-      filterLPF = audioCtx.createBiquadFilter();
-      filterLPF.type = 'lowpass';
-      filterLPF.frequency.value = ch.effects.lpf;
-      filterLPF.Q.value = 1;
-      lastNode.connect(filterLPF);
-      lastNode = filterLPF;
-    }
-
-    let filterHPF = null;
-    if (ch.effects.hpf !== null) {
-      filterHPF = audioCtx.createBiquadFilter();
-      filterHPF.type = 'highpass';
-      filterHPF.frequency.value = ch.effects.hpf;
-      filterHPF.Q.value = 1;
-      lastNode.connect(filterHPF);
-      lastNode = filterHPF;
-    }
-
-    const volumeGain = audioCtx.createGain();
-    volumeGain.gain.value = ch.effects.vol;
-    lastNode.connect(volumeGain);
-    volumeGain.connect(analyserNode);
-
-    channelNodes.push({ source, envelopeGain, filterLPF, filterHPF, volumeGain, channel: ch });
+  const keys = keysFor(hum.channels);
+  for (let i = 0; i < hum.channels.length; i++) {
+    const node = createChannelNode(hum.channels[i], keys[i]);
+    channelNodes.push(node);
+    channelNodesByName.set(keys[i], node);
   }
 }
 
@@ -475,25 +504,21 @@ function teardownGraph() {
     try {
       node.envelopeGain.gain.cancelScheduledValues(0);
       node.envelopeGain.gain.setValueAtTime(0, audioCtx.currentTime);
-      node.source.stop();
     } catch (e) {}
-    try { node.source.disconnect(); } catch (e) {}
-    try { node.envelopeGain.disconnect(); } catch (e) {}
-    try { if (node.filterLPF) node.filterLPF.disconnect(); } catch (e) {}
-    try { if (node.filterHPF) node.filterHPF.disconnect(); } catch (e) {}
-    try { node.volumeGain.disconnect(); } catch (e) {}
+    disconnectNode(node);
   }
-  channelNodes = [];
+  channelNodes.length = 0;
+  channelNodesByName.clear();
 }
 
 // ── Scheduler ───────────────────────────────────────────────────────
 
 class Scheduler {
-  constructor(audioCtx, channelNodes, stepDuration) {
+  constructor(audioCtx, nodes, stepDuration) {
     this.ctx = audioCtx;
-    this.nodes = channelNodes;
+    this.nodes = nodes;       // shared reference to channelNodes; mutated in place
     this.dur = stepDuration;
-    this.step = 0;
+    this.step = 0;            // next step index to schedule
     this.t0 = 0;
     this.tid = null;
   }
@@ -501,11 +526,58 @@ class Scheduler {
   start() {
     this.t0 = this.ctx.currentTime;
     this.step = 0;
+    this._workerTick = () => this.tick();
+    timerWorker.addEventListener('message', this._workerTick);
+    timerWorker.postMessage({ cmd: 'start', interval: TICK_MS });
     this.tick();
   }
 
   stop() {
-    if (this.tid !== null) { clearTimeout(this.tid); this.tid = null; }
+    timerWorker.postMessage({ cmd: 'stop' });
+    if (this._workerTick) {
+      timerWorker.removeEventListener('message', this._workerTick);
+      this._workerTick = null;
+    }
+  }
+
+  getPhase() {
+    return (this.ctx.currentTime - this.t0) / this.dur;
+  }
+
+  getVisualStep() {
+    return Math.floor(this.getPhase());
+  }
+
+  // Called from liveUpdate before a structural mutation at `applyAt`:
+  // rewind so the next tick re-schedules from that boundary onward,
+  // and cancel already-queued envelope/frequency events past it.
+  rewindTo(applyAt) {
+    const boundaryStep = Math.ceil((applyAt - this.t0) / this.dur - 1e-6);
+    if (boundaryStep < this.step) this.step = boundaryStep;
+    for (const node of this.nodes) {
+      try { node.envelopeGain.gain.cancelScheduledValues(applyAt); } catch (e) {}
+      if (node.source && node.source.frequency) {
+        try { node.source.frequency.cancelScheduledValues(applyAt); } catch (e) {}
+      }
+    }
+  }
+
+  // Preserve fractional phase across a tempo change, then rewind so future
+  // events get rewritten against the new grid.
+  rebaseForTempo(newDur) {
+    const now = this.ctx.currentTime;
+    const phase = (now - this.t0) / this.dur;
+    this.t0 = now - phase * newDur;
+    this.dur = newDur;
+    this.step = Math.ceil(phase - 1e-6);
+    // Cancel only past the next boundary — preserve any in-flight envelope ramp.
+    const cancelFrom = this.t0 + this.step * this.dur;
+    for (const node of this.nodes) {
+      try { node.envelopeGain.gain.cancelScheduledValues(cancelFrom); } catch (e) {}
+      if (node.source && node.source.frequency) {
+        try { node.source.frequency.cancelScheduledValues(cancelFrom); } catch (e) {}
+      }
+    }
   }
 
   tick() {
@@ -514,6 +586,7 @@ class Scheduler {
     while (this.t0 + this.step * this.dur < ahead) {
       const t = this.t0 + this.step * this.dur;
       for (const node of this.nodes) {
+        if (t < node.notBefore || t >= node.stoppedAt) continue;
         const ch = node.channel;
         const s = ch.pattern[this.step % ch.pattern.length];
         const g = node.envelopeGain.gain;
@@ -534,11 +607,6 @@ class Scheduler {
       }
       this.step++;
     }
-    this.tid = setTimeout(() => this.tick(), TICK_MS);
-  }
-
-  getVisualStep() {
-    return Math.floor((this.ctx.currentTime - this.t0) / this.dur);
   }
 }
 
@@ -668,6 +736,7 @@ function highlightTokens(code, comment, chIdx, stepCounter) {
 
   const patTokens = patPart.split(/(\s+)/);
   for (const ct of patTokens) {
+    if (ct === '') continue;
     if (ct.match(/^\s+$/)) { out += esc(ct); continue; }
     const low = ct.toLowerCase();
     const s = (stepCounter && ch !== null) ? stepCounter.n : null;
@@ -683,6 +752,7 @@ function highlightTokens(code, comment, chIdx, stepCounter) {
     const fxBody = fxPart.slice(1);
     const fxTokens = fxBody.split(/(\s+)/);
     for (const ft of fxTokens) {
+      if (ft === '') continue;
       if (ft.match(/^\s+$/)) out += esc(ft);
       else if (EFFECT_NAMES.has(ft.toLowerCase())) out += span('fx', ft);
       else if (NUM_RE.test(ft)) out += span('nu', ft);
@@ -854,7 +924,6 @@ function onInput() {
 // ── Live Coding ─────────────────────────────────────────────────────
 
 let lastParseKey = '';
-let graceTimer = null;
 
 function humKey(hum) {
   return hum.bpm + '|' + hum.channels.map(c =>
@@ -864,61 +933,150 @@ function humKey(hum) {
   ).join('|');
 }
 
-function canUpdateInPlace(newChannels) {
-  if (channelNodes.length !== newChannels.length) return false;
-  for (let i = 0; i < channelNodes.length; i++) {
-    const old = channelNodes[i].channel;
-    const nw = newChannels[i];
-    if (old.waveform !== nw.waveform) return false;
-    if ((old.effects.lpf !== null) !== (nw.effects.lpf !== null)) return false;
-    if ((old.effects.hpf !== null) !== (nw.effects.hpf !== null)) return false;
-  }
-  return true;
+// Next step boundary beyond the scheduler lookahead, with a small safety margin
+// so our mutation lands on a fresh step the scheduler hasn't written yet.
+function nextBoundary() {
+  const now = audioCtx.currentTime;
+  const safe = now + SCHEDULE_AHEAD + 0.02;
+  const phase = (safe - scheduler.t0) / scheduler.dur;
+  const boundaryStep = Math.ceil(phase);
+  return scheduler.t0 + boundaryStep * scheduler.dur;
 }
 
-function updateInPlace(hum) {
-  for (let i = 0; i < channelNodes.length; i++) {
-    const node = channelNodes[i];
-    const ch = hum.channels[i];
-    node.channel = ch;
-    if (node.filterLPF) node.filterLPF.frequency.value = ch.effects.lpf;
-    if (node.filterHPF) node.filterHPF.frequency.value = ch.effects.hpf;
-    node.volumeGain.gain.value = ch.effects.vol;
-  }
-  if (scheduler) scheduler.dur = 60 / hum.bpm / 2;
-}
+function swapWaveform(node, newWaveform, applyAt) {
+  const newSource = createSource(newWaveform);
+  const newSrcGain = audioCtx.createGain();
+  newSrcGain.gain.setValueAtTime(0, audioCtx.currentTime);
+  newSource.connect(newSrcGain);
+  newSrcGain.connect(node.envelopeGain);
+  newSource.start(applyAt);
 
-function fullRebuild(hum) {
-  if (scheduler) scheduler.stop();
-  const t = audioCtx.currentTime;
-  for (const node of channelNodes) {
-    node.envelopeGain.gain.cancelScheduledValues(t);
-    node.envelopeGain.gain.setTargetAtTime(0, t, 0.005);
-    node.volumeGain.gain.setTargetAtTime(0, t, 0.005);
-  }
+  const oldSource = node.source;
+  const oldSrcGain = node.sourceGain;
+
+  // 5ms equal-power-ish crossfade at the boundary
+  const fade = 0.005;
+  oldSrcGain.gain.cancelScheduledValues(applyAt);
+  oldSrcGain.gain.setValueAtTime(1, applyAt);
+  oldSrcGain.gain.linearRampToValueAtTime(0, applyAt + fade);
+  newSrcGain.gain.setValueAtTime(0, applyAt);
+  newSrcGain.gain.linearRampToValueAtTime(1, applyAt + fade);
+
+  node.source = newSource;
+  node.sourceGain = newSrcGain;
+
+  const delayMs = Math.max(0, (applyAt - audioCtx.currentTime) * 1000) + 60;
   setTimeout(() => {
-    buildGraph(hum);
-    scheduler = new Scheduler(audioCtx, channelNodes, 60 / hum.bpm / 2);
-    scheduler.start();
-  }, 30);
+    try { oldSource.stop(); } catch (e) {}
+    try { oldSource.disconnect(); } catch (e) {}
+    try { oldSrcGain.disconnect(); } catch (e) {}
+  }, delayMs);
+}
+
+function addChannel(ch, registryKey, insertIdx, applyAt) {
+  const node = createChannelNode(ch, registryKey);
+  node.notBefore = applyAt;
+  channelNodes.splice(insertIdx, 0, node);
+  channelNodesByName.set(registryKey, node);
+}
+
+function removeChannel(node, applyAt) {
+  node.stoppedAt = applyAt;
+  const g = node.envelopeGain.gain;
+  try {
+    g.cancelScheduledValues(applyAt);
+    g.setTargetAtTime(0, applyAt, 0.005);
+  } catch (e) {}
+
+  const idx = channelNodes.indexOf(node);
+  if (idx >= 0) channelNodes.splice(idx, 1);
+  channelNodesByName.delete(node.registryKey);
+
+  const delayMs = Math.max(0, (applyAt - audioCtx.currentTime) * 1000) + 80;
+  setTimeout(() => disconnectNode(node), delayMs);
+}
+
+// Apply an effect delta in place with a short time-constant ramp to avoid zipper noise.
+function applyEffectDeltas(node, newCh) {
+  const now = audioCtx.currentTime;
+  const old = node.channel.effects;
+  const nw = newCh.effects;
+  const tc = 0.01;
+  if (old.vol !== nw.vol) {
+    node.volumeGain.gain.setTargetAtTime(nw.vol, now, tc);
+  }
+  const newLPF = nw.lpf !== null ? nw.lpf : LPF_OPEN;
+  const oldLPF = old.lpf !== null ? old.lpf : LPF_OPEN;
+  if (newLPF !== oldLPF) {
+    node.filterLPF.frequency.setTargetAtTime(newLPF, now, tc);
+  }
+  const newHPF = nw.hpf !== null ? nw.hpf : HPF_OPEN;
+  const oldHPF = old.hpf !== null ? old.hpf : HPF_OPEN;
+  if (newHPF !== oldHPF) {
+    node.filterHPF.frequency.setTargetAtTime(newHPF, now, tc);
+  }
 }
 
 function liveUpdate(hum) {
   const key = humKey(hum);
   if (key === lastParseKey) return;
+  // Suppress audio diff while source is broken or empty; keep playing current graph.
+  if (hum.channels.length === 0 || hum.errors.length > 0) return;
   lastParseKey = key;
-  if (canUpdateInPlace(hum.channels)) {
-    updateInPlace(hum);
-  } else if (hum.channels.length < channelNodes.length && hum.errors.length > 0) {
-    if (!graceTimer) {
-      graceTimer = setTimeout(() => {
-        graceTimer = null;
-        if (isPlaying && audioCtx) fullRebuild(hum);
-      }, 500);
+
+  // 1. Tempo — rebase phase before anything else so subsequent boundary math uses new dur.
+  const newDur = 60 / hum.bpm / 2;
+  if (scheduler && Math.abs(newDur - scheduler.dur) > 1e-9) {
+    scheduler.rebaseForTempo(newDur);
+  }
+
+  const newKeys = keysFor(hum.channels);
+  const newKeySet = new Set(newKeys);
+  const oldKeySet = new Set(channelNodes.map(n => n.registryKey));
+
+  // 2. Remove channels no longer present (quantized to next boundary).
+  const boundary = nextBoundary();
+  let structuralChange = false;
+  for (const node of [...channelNodes]) {
+    if (!newKeySet.has(node.registryKey)) {
+      removeChannel(node, boundary);
+      structuralChange = true;
     }
-  } else if (hum.channels.length > 0) {
-    if (graceTimer) { clearTimeout(graceTimer); graceTimer = null; }
-    fullRebuild(hum);
+  }
+
+  // 3. Survivors: update pattern/effects in place now; queue waveform swap at boundary.
+  const swaps = [];
+  for (let i = 0; i < hum.channels.length; i++) {
+    const key = newKeys[i];
+    const newCh = hum.channels[i];
+    const node = channelNodesByName.get(key);
+    if (!node) continue; // added below
+    if (node.channel.waveform !== newCh.waveform) swaps.push({ node, newCh });
+    applyEffectDeltas(node, newCh);
+    node.channel = newCh;
+  }
+
+  // 4. Add new channels at the boundary, in parse position.
+  for (let i = 0; i < hum.channels.length; i++) {
+    const key = newKeys[i];
+    if (!oldKeySet.has(key)) {
+      addChannel(hum.channels[i], key, i, boundary);
+      structuralChange = true;
+    }
+  }
+
+  // 5. Reorder channelNodes to match parse order (visual chIdx alignment).
+  const reordered = newKeys.map(k => channelNodesByName.get(k)).filter(Boolean);
+  channelNodes.length = 0;
+  for (const n of reordered) channelNodes.push(n);
+
+  // 6. Apply waveform swaps + rewind scheduler so the boundary step onward is
+  //    rewritten against the new graph (ensures new channels fire on boundary
+  //    and removed channels don't).
+  if (swaps.length > 0) structuralChange = true;
+  if (structuralChange) scheduler.rewindTo(boundary);
+  for (const { node, newCh } of swaps) {
+    swapWaveform(node, newCh.waveform, boundary);
   }
 }
 
