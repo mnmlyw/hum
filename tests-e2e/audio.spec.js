@@ -37,6 +37,22 @@ test('newly-added channel is silent until its notBefore boundary', async ({ page
   expect(gainLater).toBeGreaterThanOrEqual(0);
 });
 
+test('all-rest pattern produces near-silence (envelope held at 0)', async ({ page }) => {
+  await applyEdit(page, 'bpm 240\nlead saw . . . . . . . .');
+  await startPlayback(page);
+  await waitForPhaseDelta(page, 2);
+  const rms = await analyserRms(page, 250);
+  expect(rms).toBeLessThan(1);
+});
+
+test('vol 0 silences the channel even with an active pattern', async ({ page }) => {
+  await applyEdit(page, 'bpm 120\nlead saw c3 e3 g3 c4 : vol 0');
+  await startPlayback(page);
+  await waitForPhaseDelta(page, 2);
+  const rms = await analyserRms(page, 250);
+  expect(rms).toBeLessThan(1);
+});
+
 test('stopping playback silences the analyser within a beat', async ({ page }) => {
   await applyEdit(page, 'bpm 120\nbass saw c3 e3 g3 c4');
   await startPlayback(page);

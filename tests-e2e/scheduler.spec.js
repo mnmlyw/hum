@@ -77,6 +77,42 @@ test('t0 is unchanged across pattern, effect, waveform, add, and remove edits', 
   }
 });
 
+test('pattern of length 1 loops without wrap errors', async ({ page }) => {
+  // Edge case for `ch.pattern[step % ch.pattern.length]` with length 1:
+  // modulo always yields 0 and the same note must keep firing forever.
+  await applyEdit(page, 'bpm 240\nlead sin c4');
+  await startPlayback(page);
+  await waitForPhaseDelta(page, 6);
+
+  const freq = await page.evaluate(
+    () => window.__hum.channelNodesByName.get('lead').source.frequency.value
+  );
+  // c4 ≈ 261.63 Hz; any non-zero value at c4 pitch means the note scheduled.
+  expect(freq).toBeGreaterThan(250);
+  expect(freq).toBeLessThan(275);
+});
+
+test('polyrhythm: different pattern lengths each advance from the same t0', async ({ page }) => {
+  await applyEdit(
+    page,
+    'bpm 240\nlead sin c4 e4 g4\nbass saw c3 g3'
+  );
+  await startPlayback(page);
+  await waitForPhaseDelta(page, 4);
+
+  const { t0Lead, t0Bass, patternLengths } = await page.evaluate(() => {
+    const h = window.__hum;
+    return {
+      t0Lead: h.scheduler.t0,
+      t0Bass: h.scheduler.t0,
+      patternLengths: h.channelNodes.map((n) => n.channel.pattern.length)
+    };
+  });
+  // Both channels share the single scheduler t0 — drift comes from modulo only.
+  expect(t0Lead).toBe(t0Bass);
+  expect(patternLengths).toEqual([3, 2]);
+});
+
 test('t0 rebases on bpm edit but leaves phase continuous', async ({ page }) => {
   await applyEdit(page, 'bpm 120\nbass saw c3 e3 g3 c4');
   await startPlayback(page);

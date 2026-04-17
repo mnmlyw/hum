@@ -36,6 +36,28 @@ test('unknown note receives .er class and no data-s phantom', async ({ page }) =
   expect(phantom).toBe(0);
 });
 
+test('bpm line highlights keyword and number with distinct classes', async ({ page }) => {
+  await applyEdit(page, 'bpm 144\nlead sin c4');
+  const kwTexts = await page.$$eval('.kw', (els) => els.map((e) => e.textContent));
+  const nuTexts = await page.$$eval('#highlight .nu', (els) => els.map((e) => e.textContent));
+  expect(kwTexts).toContain('bpm');
+  expect(nuTexts).toContain('144');
+});
+
+test('stopping playback clears all .playing classes from pattern spans', async ({ page }) => {
+  await applyEdit(page, 'bpm 240\nlead sin c4 e4 g4 c5');
+  await startPlayback(page);
+  await page.waitForFunction(
+    () => document.querySelectorAll('.pt.playing').length > 0
+  );
+  await page.click('#play-btn');
+  await page.waitForFunction(() => !window.__hum.isPlaying);
+  // drawViz, on next frame, iterates prevPlaying and removes `.playing`.
+  await page.waitForFunction(
+    () => document.querySelectorAll('.pt.playing').length === 0
+  );
+});
+
 test('pattern-token data-s indices are contiguous per channel', async ({ page }) => {
   await applyEdit(page, 'bpm 120\npluck sin c4 e4 g4 c5');
   const indices = await page.$$eval('.pt[data-ch="0"]', els =>

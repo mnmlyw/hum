@@ -257,7 +257,7 @@ function parseNum(s) {
   return parseFloat(s);
 }
 
-const EFFECT_NAMES = new Set(['lpf','hpf','decay','vol','attack','sustain','release']);
+const EFFECT_NAMES = new Set(['lpf','hpf','decay','vol']);
 
 function parse(text) {
   const result = { bpm: DEFAULT_BPM, channels: [], errors: [] };
@@ -370,9 +370,6 @@ function parse(text) {
           else if (fx === 'hpf') effects.hpf = val;
           else if (fx === 'decay') effects.decay = val;
           else if (fx === 'vol') effects.vol = Math.max(0, Math.min(1, val));
-          else if (fx === 'attack') effects.attack = val;
-          else if (fx === 'sustain') effects.sustain = Math.max(0, Math.min(1, val));
-          else if (fx === 'release') effects.release = val;
         }
       }
 
@@ -1101,6 +1098,7 @@ async function startPlayback() {
   buildGraph(hum);
   scheduler = new Scheduler(audioCtx, channelNodes, 60 / hum.bpm / 2);
   scheduler.start();
+  lastParseKey = humKey(hum);
   isPlaying = true;
   playBtn.textContent = 'stop';
   playBtn.classList.add('playing');
@@ -1109,6 +1107,7 @@ async function startPlayback() {
 function stopPlayback() {
   if (scheduler) { scheduler.stop(); scheduler = null; }
   teardownGraph();
+  lastParseKey = '';
   isPlaying = false;
   playBtn.textContent = 'play';
   playBtn.classList.remove('playing');
@@ -1207,7 +1206,7 @@ document.addEventListener('dragover', (e) => { e.preventDefault(); });
 document.addEventListener('drop', (e) => {
   e.preventDefault();
   const file = e.dataTransfer.files[0];
-  if (file && file.name.endsWith('.hum')) loadFile(file);
+  if (file && file.name.toLowerCase().endsWith('.hum')) loadFile(file);
 });
 
 // Keyboard shortcuts

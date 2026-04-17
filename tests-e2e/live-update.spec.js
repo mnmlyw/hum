@@ -252,6 +252,69 @@ test('parse error suspends liveUpdate — existing graph keeps advancing', async
   expect(r.isPlaying).toBe(true);
 });
 
+test('stop → revert → start → re-edit applies the diff (lastParseKey regression)', async ({ page }) => {
+  // Before the fix, lastParseKey persisted across stop. If the user edited to T2
+  // during playback, stopped, reverted to T1, started (graph = T1), and edited
+  // back to T2, liveUpdate saw key(T2) === lastParseKey and returned early —
+  // the graph stayed at T1 while the text said T2.
+  const T1 = 'bpm 120\nlead sin c4 e4 g4 c5';
+  const T2 = 'bpm 120\nlead sin c4 e4 g4 c5\nbass saw c2 g2';
+
+  await applyEdit(page, T1);
+  await startPlayback(page);
+  await applyEdit(page, T2);
+  expect((await snapshot(page)).names).toEqual(['lead', 'bass']);
+
+  await page.click('#play-btn');
+  await page.waitForFunction(() => !window.__hum.isPlaying);
+
+  await applyEdit(page, T1);
+  await startPlayback(page);
+  expect((await snapshot(page)).names).toEqual(['lead']);
+
+  await applyEdit(page, T2);
+  expect((await snapshot(page)).names).toEqual(['lead', 'bass']);
+});
+
+test('parse-error edit does not poison lastParseKey; later valid edit applies', async ({ page }) => {
+  // An error-state edit must not advance lastParseKey, otherwise a subsequent
+  // valid edit identical-by-key to the error text would skip diffing.
+  await applyEdit(page, 'bpm 120\nlead sin c4 e4');
+  await startPlayback(page);
+
+  await applyEdit(page, 'bpm 120\nlead sin c4 e4 : wobble 1'); // unknown effect → errors
+  expect((await snapshot(page)).names).toEqual(['lead']); // liveUpdate suspended
+
+  await applyEdit(page, 'bpm 120\nlead sin c4 e4\nbass saw c2'); // valid, adds channel
+  expect((await snapshot(page)).names).toEqual(['lead', 'bass']);
+});
+
+test('compound edit applies bpm, add, remove, and waveform swap atomically', async ({ page }) => {
+  await applyEdit(page, 'bpm 120\nlead sin c4 e4\ndrums noise x . x .');
+  await startPlayback(page);
+
+  await applyEdit(page, 'bpm 150\nlead tri c4 e4\nbass saw c2 g2');
+
+  const s = await snapshot(page);
+  expect(s.names).toEqual(['lead', 'bass']);
+  expect(s.dur).toBeCloseTo(60 / 150 / 2, 6);
+  const leadType = await page.evaluate(
+    () => window.__hum.channelNodesByName.get('lead').source.type
+  );
+  expect(leadType).toBe('triangle');
+});
+
+test('removing all channels suspends liveUpdate; existing graph keeps playing', async ({ page }) => {
+  await applyEdit(page, 'bpm 120\nlead sin c4 e4');
+  await startPlayback(page);
+
+  await applyEdit(page, ''); // empty text: liveUpdate's channels==0 guard suspends
+
+  const s = await snapshot(page);
+  expect(s.names).toEqual(['lead']);
+  expect(s.isPlaying).toBe(true);
+});
+
 test('rapid sequential edits converge to the final source', async ({ page }) => {
   await applyEdit(page, 'bpm 120\nbass saw c3 e3');
   await startPlayback(page);
