@@ -53,6 +53,36 @@ test('vol 0 silences the channel even with an active pattern', async ({ page }) 
   expect(rms).toBeLessThan(1);
 });
 
+test('stop during a pending channel removal silences the removed channel', async ({ page }) => {
+  // Slow bpm puts the quantized removal boundary ~1s out. Without the teardown
+  // drain, the removed channel's signal chain stays connected to the analyser
+  // for that whole window — so 200ms of post-stop analyser RMS would be loud.
+  await applyEdit(page, 'bpm 30\nlead saw c4\nbass saw c2 : vol .9');
+  await startPlayback(page);
+  await waitForPhaseDelta(page, 0.2);
+
+  await applyEdit(page, 'bpm 30\nlead saw c4'); // removes bass; setTimeout disconnect ~1s out
+
+  await page.click('#play-btn');
+  await page.waitForFunction(() => !window.__hum.isPlaying);
+  // Let the analyser's ~42ms ring buffer drain past the stop moment. Without
+  // the fix, bass would still be playing 200ms later; with the fix, silence.
+  await page.waitForTimeout(200);
+
+  const rms = await analyserRms(page, 200);
+  expect(rms).toBeLessThan(1);
+});
+
+test('scheduler survives an edit that introduces a parse error (bad decay)', async ({ page }) => {
+  // Negative decay is clamped by the parser, but we also want to confirm the
+  // engine keeps advancing through a broken edit rather than dying inside tick.
+  await applyEdit(page, 'bpm 120\nlead sin c4 e4');
+  await startPlayback(page);
+  await applyEdit(page, 'bpm 120\nlead sin c4 e4 : decay -1');
+  await waitForPhaseDelta(page, 2);
+  expect(await page.evaluate(() => window.__hum.isPlaying)).toBe(true);
+});
+
 test('stopping playback silences the analyser within a beat', async ({ page }) => {
   await applyEdit(page, 'bpm 120\nbass saw c3 e3 g3 c4');
   await startPlayback(page);

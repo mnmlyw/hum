@@ -31,6 +31,21 @@ test('Tab in the editor inserts 2 spaces at the caret', async ({ page }) => {
   expect(caret).toBe(value.length);
 });
 
+test('rapid clicks during startup create exactly one scheduler (re-entrancy guard)', async ({ page }) => {
+  // Before the guard, the `await audioCtx.resume()` inside startPlayback opened
+  // a window where a second click would build a second Scheduler, overwrite the
+  // global reference, and leave the first scheduler's worker listener orphaned.
+  await applyEdit(page, 'bpm 120\nlead sin c4 e4');
+  await page.evaluate(() => {
+    const btn = document.getElementById('play-btn');
+    btn.click();
+    btn.click();
+    btn.click();
+  });
+  await page.waitForFunction(() => window.__hum.isPlaying);
+  expect(await page.evaluate(() => window.__hum.schedulerCreations)).toBe(1);
+});
+
 test('play button is a no-op when there are no parseable channels', async ({ page }) => {
   await applyEdit(page, '-- only a comment');
   await page.click('#play-btn');

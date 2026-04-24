@@ -100,8 +100,7 @@ Is equivalent to `lead tri c4 e4 g4 c5 g4 e4 c4 . : vol .5`. Comments are stripp
 - `setInterval` runs in a Web Worker (immune to background tab throttling)
 - 25ms tick interval, 150ms lookahead window
 - Step times computed from base (`startTime + step * stepDuration`), no accumulation drift
-- Pre-schedules 1 second of steps on start to survive Worker startup latency
-- First play: polls until `audioCtx.currentTime` advances after `resume()`
+- First tick fires synchronously after `scheduler.start()`, filling the full 150 ms lookahead before control returns to the user
 
 ## Editor
 

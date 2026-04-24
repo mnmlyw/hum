@@ -346,9 +346,9 @@ describe('parser: effects', () => {
     assert.ok(hum.errors.some(e => e.message.includes('reverb')));
   });
 
-  it('reports missing values', () => {
+  it('reports invalid values', () => {
     const hum = parse('lead tri c4 : lpf');
-    assert.ok(hum.errors.some(e => e.message.includes('missing')));
+    assert.ok(hum.errors.some(e => e.message.includes('invalid value')));
   });
 
   it('handles no effects (no colon)', () => {

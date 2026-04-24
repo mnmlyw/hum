@@ -362,13 +362,20 @@ function parse(text) {
             result.errors.push({ line: i + 1, message: `unknown effect: ${fx}` });
             continue;
           }
-          if (isNaN(val)) {
-            result.errors.push({ line: i + 1, message: `missing value for ${fx}` });
+          // Number.isFinite rejects NaN, Infinity, and -Infinity alike.
+          // Non-finite values would reach scheduler.tick and throw RangeError
+          // from exponentialRampToValueAtTime / AudioParam assignment, which
+          // leaks a worker listener on the half-started scheduler.
+          if (!Number.isFinite(val)) {
+            result.errors.push({ line: i + 1, message: `invalid value for ${fx}` });
             continue;
           }
           if (fx === 'lpf') effects.lpf = val;
           else if (fx === 'hpf') effects.hpf = val;
-          else if (fx === 'decay') effects.decay = val;
+          // Clamp to >= 0: the scheduler hands decay straight to
+          // exponentialRampToValueAtTime(0.001, t + decay), and a negative
+          // endTime would throw inside tick() and kill the scheduler.
+          else if (fx === 'decay') effects.decay = Math.max(0, val);
           else if (fx === 'vol') effects.vol = Math.max(0, Math.min(1, val));
         }
       }
@@ -392,8 +399,11 @@ let noiseBuffer = null;
 let analyserNode = null;
 const channelNodes = [];         // ordered view (parse order); never reassigned
 const channelNodesByName = new Map(); // registry keyed by stable name#occurrence
+const pendingRemovals = new Set();    // nodes spliced out of channelNodes but not yet disconnected
 let scheduler = null;
 let isPlaying = false;
+let starting = false;
+let schedulerCreations = 0;
 
 function ensureAudioCtx() {
   if (!audioCtx) {
@@ -497,13 +507,20 @@ function buildGraph(hum) {
 }
 
 function teardownGraph() {
-  for (const node of channelNodes) {
+  const now = audioCtx.currentTime;
+  const silenceAndDisconnect = (node) => {
     try {
       node.envelopeGain.gain.cancelScheduledValues(0);
-      node.envelopeGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      node.envelopeGain.gain.setValueAtTime(0, now);
     } catch (e) {}
     disconnectNode(node);
-  }
+  };
+  for (const node of channelNodes) silenceAndDisconnect(node);
+  // Drain nodes that were removed mid-play but whose async disconnect setTimeout
+  // hasn't fired yet — otherwise their pre-scheduled envelope events keep
+  // playing through the still-connected graph until the boundary.
+  for (const node of pendingRemovals) silenceAndDisconnect(node);
+  pendingRemovals.clear();
   channelNodes.length = 0;
   channelNodesByName.clear();
 }
@@ -988,9 +1005,13 @@ function removeChannel(node, applyAt) {
   const idx = channelNodes.indexOf(node);
   if (idx >= 0) channelNodes.splice(idx, 1);
   channelNodesByName.delete(node.registryKey);
+  pendingRemovals.add(node);
 
   const delayMs = Math.max(0, (applyAt - audioCtx.currentTime) * 1000) + 80;
-  setTimeout(() => disconnectNode(node), delayMs);
+  setTimeout(() => {
+    pendingRemovals.delete(node);
+    disconnectNode(node);
+  }, delayMs);
 }
 
 // Apply an effect delta in place with a short time-constant ramp to avoid zipper noise.
@@ -1088,20 +1109,30 @@ playBtn.addEventListener('click', () => {
 });
 
 async function startPlayback() {
-  ensureAudioCtx();
-  await audioCtx.resume();
-  const text = editor.value;
-  const hum = parse(text);
+  // Re-entrancy guard: the `await` below opens a window where a second click
+  // (or Cmd+Enter, which dispatches a synthetic click) would otherwise race in,
+  // build a second scheduler, and leak a worker listener that stop can't reach.
+  if (isPlaying || starting) return;
+  starting = true;
+  try {
+    ensureAudioCtx();
+    await audioCtx.resume();
+    const text = editor.value;
+    const hum = parse(text);
 
-  if (hum.channels.length === 0) return;
+    if (hum.channels.length === 0) return;
 
-  buildGraph(hum);
-  scheduler = new Scheduler(audioCtx, channelNodes, 60 / hum.bpm / 2);
-  scheduler.start();
-  lastParseKey = humKey(hum);
-  isPlaying = true;
-  playBtn.textContent = 'stop';
-  playBtn.classList.add('playing');
+    buildGraph(hum);
+    scheduler = new Scheduler(audioCtx, channelNodes, 60 / hum.bpm / 2);
+    schedulerCreations++;
+    scheduler.start();
+    lastParseKey = humKey(hum);
+    isPlaying = true;
+    playBtn.textContent = 'stop';
+    playBtn.classList.add('playing');
+  } finally {
+    starting = false;
+  }
 }
 
 function stopPlayback() {
@@ -1232,6 +1263,7 @@ if (new URLSearchParams(location.search).has('test')) {
     get channelNodes() { return channelNodes; },
     get channelNodesByName() { return channelNodesByName; },
     get isPlaying() { return isPlaying; },
+    get schedulerCreations() { return schedulerCreations; },
     // Bypass the 300ms input debounce for deterministic tests.
     applyEdit(text) {
       editor.value = text;

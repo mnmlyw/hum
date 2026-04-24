@@ -38,9 +38,26 @@ test('removed effects attack / sustain / release are rejected as unknown', async
   expect(combined).toMatch(/release/);
 });
 
-test('missing effect value reports "missing value" error', async ({ page }) => {
+test('missing effect value reports an "invalid value" error', async ({ page }) => {
   const r = await parse(page, 'lead sin c4 : vol');
-  expect(r.errors.some((e) => /missing value.*vol/i.test(e.message))).toBe(true);
+  expect(r.errors.some((e) => /invalid value.*vol/i.test(e.message))).toBe(true);
+});
+
+test('non-finite effect values are rejected (Infinity, overflow)', async ({ page }) => {
+  // parseFloat("Infinity") and parseFloat("1e309") both yield Infinity.
+  // Passing Infinity to exponentialRampToValueAtTime or AudioParam.value
+  // throws RangeError inside scheduler.tick, leaking a worker listener on
+  // the half-started scheduler. Parser must reject before it gets there.
+  for (const text of [
+    'lead sin c4 : decay Infinity',
+    'lead sin c4 : lpf 1e309',
+    'lead sin c4 : vol -Infinity'
+  ]) {
+    const r = await parse(page, text);
+    expect(r.errors.length).toBeGreaterThan(0);
+    expect(r.channels[0].effects.decay).not.toBe(Infinity);
+    expect(r.channels[0].effects.lpf).not.toBe(Infinity);
+  }
 });
 
 test('flat and sharp notes map to the same frequency', async ({ page }) => {
@@ -68,6 +85,13 @@ test('comment on a continuation line does not swallow following continuations', 
     ['lead sin', '  c4 e4 -- first bar', '  g4 c5'].join('\n')
   );
   expect(r.channels[0].pattern.map((s) => s.name)).toEqual(['c4', 'e4', 'g4', 'c5']);
+});
+
+test('negative decay is clamped to 0 (guards exponentialRampToValueAtTime)', async ({ page }) => {
+  // Without the clamp, scheduler.tick would hand a negative endTime to
+  // exponentialRampToValueAtTime and throw on every tick, killing the scheduler.
+  const r = await parse(page, 'lead sin c4 : decay -.5');
+  expect(r.channels[0].effects.decay).toBeGreaterThanOrEqual(0);
 });
 
 test('vol is clamped to [0, 1]', async ({ page }) => {
