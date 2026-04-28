@@ -88,11 +88,11 @@ Is equivalent to `lead tri c4 e4 g4 c5 g4 e4 c4 . : vol .5`. Comments are stripp
 ## Audio engine
 
 - Web Audio API, single `AudioContext`
-- Per-channel signal chain: `source → envelopeGain → [lpf] → [hpf] → volumeGain → analyser → compressor → destination`
+- Per-channel signal chain: `source → sourceGain → envelopeGain → hpf → lpf → volumeGain → analyser → compressor → destination` (filters are always present; `hpf` defaults to 0 Hz and `lpf` to 20 kHz when no effect is set)
 - Pitched waveforms: continuous `OscillatorNode`, frequency set per step
 - Noise: looped `AudioBufferSourceNode` (2s random buffer)
 - `DynamicsCompressorNode` on master bus prevents clipping
-- 3ms attack/release ramps on all gain changes to prevent clicks
+- Short ramps and crossfades at gain transitions to suppress clicks: 5 ms equal-power crossfade on waveform swap, 10 ms `setTargetAtTime` ramps on effect-value changes, end-of-step linear fade to 0 over the last 10 ms of each non-decay note, 3 ms attack on the master `DynamicsCompressorNode`. Note onsets themselves are instantaneous (`setValueAtTime(1, t)`).
 
 ## Scheduler
 

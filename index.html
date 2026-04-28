@@ -633,6 +633,7 @@ let stepDots = [];
 let vizBuffer = null;
 let stepSpanMap = {};
 let prevPlaying = [];
+let wasPlaying = false;
 
 function resizeCanvas() {
   canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -643,10 +644,9 @@ function resizeCanvas() {
 new ResizeObserver(resizeCanvas).observe(canvas);
 resizeCanvas();
 
-function buildStepDots(maxSteps) {
+function buildStepDots(count) {
   stepBar.innerHTML = '';
   stepDots = [];
-  const count = Math.min(maxSteps || 8, 64);
   for (let i = 0; i < count; i++) {
     const dot = document.createElement('div');
     dot.className = 'step-dot' + (i % 8 === 0 ? ' beat' : '');
@@ -664,6 +664,7 @@ function drawViz() {
   ctx.clearRect(0, 0, w, h);
 
   if (analyserNode && isPlaying) {
+    wasPlaying = true;
     const bufLen = analyserNode.frequencyBinCount;
     if (!vizBuffer || vizBuffer.length !== bufLen) vizBuffer = new Uint8Array(bufLen);
     analyserNode.getByteTimeDomainData(vizBuffer);
@@ -703,10 +704,13 @@ function drawViz() {
         if (el) { el.classList.add('playing'); prevPlaying.push(el); }
       }
     }
-  } else {
+  } else if (wasPlaying) {
+    // One-shot cleanup on the playing → not-playing edge, so we don't burn
+    // ~3,840 classList ops/sec (60fps × up to 64 step dots) while idle.
     for (const dot of stepDots) dot.classList.remove('active');
     for (const el of prevPlaying) el.classList.remove('playing');
     prevPlaying = [];
+    wasPlaying = false;
   }
 
   requestAnimationFrame(drawViz);
@@ -925,9 +929,12 @@ function onInput() {
     ? hum.channels.map(c => `${c.name}: ${c.waveform}`).join('  ')
     : '';
 
-  // Find max pattern length for step dots
+  // Find max pattern length for step dots; cap at 64, fall back to 8 placeholders.
+  // Compute the target count once and compare to the actual DOM count so an
+  // empty/no-op edit doesn't force a redundant innerHTML rebuild every onInput.
   const maxLen = hum.channels.reduce((m, c) => Math.max(m, c.pattern.length), 0);
-  if (maxLen !== stepDots.length) buildStepDots(maxLen);
+  const desiredDots = Math.min(maxLen || 8, 64);
+  if (desiredDots !== stepDots.length) buildStepDots(desiredDots);
 
   // Live update while playing
   if (isPlaying && audioCtx) {
