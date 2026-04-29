@@ -249,6 +249,15 @@ for (let oct = 0; oct <= 8; oct++) {
 
 // ── Parser ──────────────────────────────────────────────────────────
 
+// Pattern step shape — one factory per kind so future kinds extend in one
+// place instead of forking the parser. Every step has a `type` discriminator
+// that the scheduler dispatches on; payload fields are kind-specific.
+const Step = {
+  rest: () => ({ type: 'rest' }),
+  trigger: () => ({ type: 'trigger' }),
+  note: (freq, name) => ({ type: 'note', freq, name })
+};
+
 // Parse number with shorthand: .05 -> 0.05, 6k -> 6000
 function parseNum(s) {
   if (!s) return NaN;
@@ -332,16 +341,16 @@ function parse(text) {
       for (const token of patTokens) {
         const t = token.toLowerCase();
         if (t === '.' || t === '_') {
-          pattern.push({ type: 'rest' });
+          pattern.push(Step.rest());
         } else if (t === 'x') {
-          pattern.push({ type: 'trigger' });
+          pattern.push(Step.trigger());
         } else {
           const freq = NOTE_FREQ[t];
           if (freq !== undefined) {
-            pattern.push({ type: 'note', freq, name: t });
+            pattern.push(Step.note(freq, t));
           } else {
             result.errors.push({ line: i + 1, message: `unknown note: ${token}` });
-            pattern.push({ type: 'rest' });
+            pattern.push(Step.rest());
           }
         }
       }
@@ -1272,7 +1281,27 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// Test hook — exposes runtime internals to Playwright when ?test=1
+// ── Test hook ───────────────────────────────────────────────────────
+//
+// `window.__hum` is a load-bearing API for the Playwright suite. Anything
+// added here is part of the test contract — adding a field commits future
+// edits to keeping it stable. Removing or renaming a field will break the
+// test suite. Group new fields by category and prefer narrow, observable
+// state over wide handles.
+//
+// Contract (when ?test=1):
+//   parse(text)               — pure parser; same as the live parser.
+//   applyEdit(text)           — set editor + run onInput synchronously,
+//                               bypassing the 300ms debounce.
+//   LPF_OPEN, HPF_OPEN,       — runtime constants tests assert against.
+//   SCHEDULE_AHEAD
+//   audioCtx, analyser        — live audio graph handles for RMS sampling.
+//   scheduler                 — current Scheduler instance (or null).
+//   channelNodes              — ordered array of live channel nodes.
+//   channelNodesByName        — Map<registryKey, node>.
+//   isPlaying                 — boolean.
+//   schedulerCreations        — monotonically increasing count of
+//                               `new Scheduler` calls (re-entrancy guard).
 if (new URLSearchParams(location.search).has('test')) {
   window.__hum = {
     parse,
@@ -1284,7 +1313,6 @@ if (new URLSearchParams(location.search).has('test')) {
     get channelNodesByName() { return channelNodesByName; },
     get isPlaying() { return isPlaying; },
     get schedulerCreations() { return schedulerCreations; },
-    // Bypass the 300ms input debounce for deterministic tests.
     applyEdit(text) {
       editor.value = text;
       onInput();

@@ -5,6 +5,18 @@ import {
 
 test.beforeEach(async ({ page }) => { await gotoApp(page); });
 
+test('default hum produces audible output (smoke test for the audio engine)', async ({ page }) => {
+  // The shipped 6-channel default is the de-facto integration test for the
+  // parser + scheduler + audio graph. If a refactor breaks audio production
+  // for any reason this test will catch it before any structural test does.
+  await gotoApp(page);
+  // Use the editor's pre-loaded DEFAULT_HUM as-is.
+  await startPlayback(page);
+  await waitForPhaseDelta(page, 1.5);
+  const rms = await analyserRms(page, 400);
+  expect(rms).toBeGreaterThan(3);
+});
+
 test('signal flows through the graph during playback', async ({ page }) => {
   await applyEdit(page, 'bpm 120\nbass saw c3 e3 g3 c4');
   await startPlayback(page);

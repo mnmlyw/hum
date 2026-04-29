@@ -90,6 +90,46 @@ async function getStructure(page) {
   });
 }
 
+// Round-trip: serializing a parsed hum and re-parsing must yield the same
+// channel structure. Catches any future grammar change that breaks
+// idempotence — e.g. new tokens that humToText doesn't faithfully emit.
+test('property: parse(humToText(hum)) round-trips through serialization', async ({ page }) => {
+  await gotoApp(page);
+  await fc.assert(
+    fc.asyncProperty(arbHum, async (hum) => {
+      const text1 = humToText(hum);
+      const parsed1 = await page.evaluate((t) => window.__hum.parse(t), text1);
+      expect(parsed1.errors).toEqual([]);
+
+      // Re-serialize from the parsed result and re-parse.
+      const text2 = humToText({
+        bpm: parsed1.bpm,
+        channels: parsed1.channels.map((c) => ({
+          name: c.name,
+          waveform: c.waveform,
+          pattern: c.pattern.map((s) =>
+            s.type === 'rest' ? '.' : s.type === 'trigger' ? 'x' : s.name
+          ),
+          effects: c.effects
+        }))
+      });
+      const parsed2 = await page.evaluate((t) => window.__hum.parse(t), text2);
+
+      expect(parsed2.bpm).toBe(parsed1.bpm);
+      expect(parsed2.channels.length).toBe(parsed1.channels.length);
+      for (let i = 0; i < parsed1.channels.length; i++) {
+        const a = parsed1.channels[i];
+        const b = parsed2.channels[i];
+        expect(b.name).toBe(a.name);
+        expect(b.waveform).toBe(a.waveform);
+        expect(b.effects).toEqual(a.effects);
+        expect(b.pattern.map((s) => s.type)).toEqual(a.pattern.map((s) => s.type));
+      }
+    }),
+    { numRuns: 50, seed: 0xBEEF }
+  );
+});
+
 test('property: any edit sequence converges to the same graph as a fresh build of the final hum', async ({ page }) => {
   await gotoApp(page);
 
