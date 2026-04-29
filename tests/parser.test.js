@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 
 // ── Extract parser from index.html ────────────────────────────────────
 
-const html = readFileSync(new URL('./index.html', import.meta.url), 'utf8');
+const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
 let src = scriptMatch[1];
 
@@ -496,7 +496,7 @@ describe('parser: error handling', () => {
 
 describe('parser: real hum files', () => {
   it('parses glass.hum', () => {
-    const text = readFileSync(new URL('./demos/glass.hum', import.meta.url), 'utf8');
+    const text = readFileSync(new URL('../demos/glass.hum', import.meta.url), 'utf8');
     const hum = parse(text);
     assert.equal(hum.bpm, 96);
     assert.equal(hum.channels.length, 6);
@@ -506,7 +506,7 @@ describe('parser: real hum files', () => {
   });
 
   it('parses neon-drift.hum', () => {
-    const text = readFileSync(new URL('./demos/neon-drift.hum', import.meta.url), 'utf8');
+    const text = readFileSync(new URL('../demos/neon-drift.hum', import.meta.url), 'utf8');
     const hum = parse(text);
     assert.equal(hum.bpm, 138);
     assert.equal(hum.channels.length, 8);
@@ -514,7 +514,7 @@ describe('parser: real hum files', () => {
   });
 
   it('parses tidal-memory.hum', () => {
-    const text = readFileSync(new URL('./demos/tidal-memory.hum', import.meta.url), 'utf8');
+    const text = readFileSync(new URL('../demos/tidal-memory.hum', import.meta.url), 'utf8');
     const hum = parse(text);
     assert.equal(hum.bpm, 64);
     assert.equal(hum.channels.length, 7);
@@ -522,7 +522,7 @@ describe('parser: real hum files', () => {
   });
 
   it('parses slow-erosion.hum', () => {
-    const text = readFileSync(new URL('./demos/slow-erosion.hum', import.meta.url), 'utf8');
+    const text = readFileSync(new URL('../demos/slow-erosion.hum', import.meta.url), 'utf8');
     const hum = parse(text);
     assert.equal(hum.bpm, 52);
     assert.equal(hum.channels.length, 8);
@@ -530,7 +530,7 @@ describe('parser: real hum files', () => {
   });
 
   it('parses phosphene.hum', () => {
-    const text = readFileSync(new URL('./demos/phosphene.hum', import.meta.url), 'utf8');
+    const text = readFileSync(new URL('../demos/phosphene.hum', import.meta.url), 'utf8');
     const hum = parse(text);
     assert.equal(hum.bpm, 88);
     assert.equal(hum.channels.length, 8);
@@ -700,7 +700,7 @@ describe('scheduler: channel sync', () => {
   it('all demo hums have matching channel lengths', () => {
     const files = ['glass.hum', 'neon-drift.hum', 'phosphene.hum', 'dust-and-iron.hum'];
     for (const file of files) {
-      const text = readFileSync(new URL('./demos/' + file, import.meta.url), 'utf8');
+      const text = readFileSync(new URL('../demos/' + file, import.meta.url), 'utf8');
       const hum = parse(text);
       const lengths = hum.channels.map(c => c.pattern.length);
       const maxLen = Math.max(...lengths);

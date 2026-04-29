@@ -6,7 +6,7 @@ import globals from 'globals';
 
 export default [
   {
-    files: ['test.js', 'tests-e2e/**/*.js', 'tools/**/*.js'],
+    files: ['tests/**/*.js', 'tools/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
