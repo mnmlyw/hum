@@ -439,30 +439,34 @@ function createSource(waveform) {
   return s;
 }
 
+function makeGain(value) {
+  const g = audioCtx.createGain();
+  g.gain.value = value;
+  return g;
+}
+
+function makeFilter(type, freq) {
+  const f = audioCtx.createBiquadFilter();
+  f.type = type;
+  f.Q.value = 0.707;
+  f.frequency.value = freq;
+  return f;
+}
+
+// Connect a sequence of audio nodes head → tail.
+function chain(...nodes) {
+  for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1]);
+}
+
 function createChannelNode(ch, registryKey) {
   const source = createSource(ch.waveform);
-  const sourceGain = audioCtx.createGain();
-  sourceGain.gain.value = 1;
-  const envelopeGain = audioCtx.createGain();
-  envelopeGain.gain.value = 0;
-  const filterHPF = audioCtx.createBiquadFilter();
-  filterHPF.type = 'highpass';
-  filterHPF.Q.value = 0.707;
-  filterHPF.frequency.value = ch.effects.hpf !== null ? ch.effects.hpf : HPF_OPEN;
-  const filterLPF = audioCtx.createBiquadFilter();
-  filterLPF.type = 'lowpass';
-  filterLPF.Q.value = 0.707;
-  filterLPF.frequency.value = ch.effects.lpf !== null ? ch.effects.lpf : LPF_OPEN;
-  const volumeGain = audioCtx.createGain();
-  volumeGain.gain.value = ch.effects.vol;
+  const sourceGain = makeGain(1);
+  const envelopeGain = makeGain(0);
+  const filterHPF = makeFilter('highpass', ch.effects.hpf ?? HPF_OPEN);
+  const filterLPF = makeFilter('lowpass', ch.effects.lpf ?? LPF_OPEN);
+  const volumeGain = makeGain(ch.effects.vol);
 
-  source.connect(sourceGain);
-  sourceGain.connect(envelopeGain);
-  envelopeGain.connect(filterHPF);
-  filterHPF.connect(filterLPF);
-  filterLPF.connect(volumeGain);
-  volumeGain.connect(analyserNode);
-
+  chain(source, sourceGain, envelopeGain, filterHPF, filterLPF, volumeGain, analyserNode);
   source.start();
 
   return {
@@ -527,6 +531,38 @@ function teardownGraph() {
 
 // ── Scheduler ───────────────────────────────────────────────────────
 
+// Cancel queued envelope and frequency events on a channel node from time t onward.
+function cancelChannelEventsFrom(node, t) {
+  try { node.envelopeGain.gain.cancelScheduledValues(t); } catch (e) {}
+  if (node.source && node.source.frequency) {
+    try { node.source.frequency.cancelScheduledValues(t); } catch (e) {}
+  }
+}
+
+// Write one pattern step's envelope (and frequency for pitched notes) at time t.
+function scheduleStep(node, step, t, dur) {
+  const ch = node.channel;
+  const s = ch.pattern[step % ch.pattern.length];
+  const g = node.envelopeGain.gain;
+  g.cancelScheduledValues(t);
+  if (s.type === 'rest') {
+    g.setValueAtTime(0, t);
+    return;
+  }
+  if (s.type === 'note' && ch.waveform !== 'noise') {
+    node.source.frequency.setValueAtTime(s.freq, t);
+  }
+  g.setValueAtTime(1, t);
+  if (ch.effects.decay != null) {
+    g.exponentialRampToValueAtTime(0.001, t + ch.effects.decay);
+  } else {
+    // Hold full gain until the last 10ms of the step, then linear-ramp to 0
+    // so the next step's setValueAtTime(1) doesn't jump from a non-zero floor.
+    g.setValueAtTime(1, t + dur - 0.01);
+    g.linearRampToValueAtTime(0, t + dur);
+  }
+}
+
 class Scheduler {
   constructor(audioCtx, nodes, stepDuration) {
     this.ctx = audioCtx;
@@ -568,12 +604,7 @@ class Scheduler {
   rewindTo(applyAt) {
     const boundaryStep = Math.ceil((applyAt - this.t0) / this.dur - 1e-6);
     if (boundaryStep < this.step) this.step = boundaryStep;
-    for (const node of this.nodes) {
-      try { node.envelopeGain.gain.cancelScheduledValues(applyAt); } catch (e) {}
-      if (node.source && node.source.frequency) {
-        try { node.source.frequency.cancelScheduledValues(applyAt); } catch (e) {}
-      }
-    }
+    for (const node of this.nodes) cancelChannelEventsFrom(node, applyAt);
   }
 
   // Preserve fractional phase across a tempo change, then rewind so future
@@ -586,37 +617,16 @@ class Scheduler {
     this.step = Math.ceil(phase - 1e-6);
     // Cancel only past the next boundary — preserve any in-flight envelope ramp.
     const cancelFrom = this.t0 + this.step * this.dur;
-    for (const node of this.nodes) {
-      try { node.envelopeGain.gain.cancelScheduledValues(cancelFrom); } catch (e) {}
-      if (node.source && node.source.frequency) {
-        try { node.source.frequency.cancelScheduledValues(cancelFrom); } catch (e) {}
-      }
-    }
+    for (const node of this.nodes) cancelChannelEventsFrom(node, cancelFrom);
   }
 
   tick() {
-    const now = this.ctx.currentTime;
-    const ahead = now + SCHEDULE_AHEAD;
+    const ahead = this.ctx.currentTime + SCHEDULE_AHEAD;
     while (this.t0 + this.step * this.dur < ahead) {
       const t = this.t0 + this.step * this.dur;
       for (const node of this.nodes) {
-        if (t < node.notBefore || t >= node.stoppedAt) continue;
-        const ch = node.channel;
-        const s = ch.pattern[this.step % ch.pattern.length];
-        const g = node.envelopeGain.gain;
-        g.cancelScheduledValues(t);
-        if (s.type === 'rest') {
-          g.setValueAtTime(0, t);
-        } else {
-          if (s.type === 'note' && ch.waveform !== 'noise')
-            node.source.frequency.setValueAtTime(s.freq, t);
-          g.setValueAtTime(1, t);
-          if (ch.effects.decay != null) {
-            g.exponentialRampToValueAtTime(0.001, t + ch.effects.decay);
-          } else {
-            g.setValueAtTime(1, t + this.dur - 0.01);
-            g.linearRampToValueAtTime(0, t + this.dur);
-          }
+        if (t >= node.notBefore && t < node.stoppedAt) {
+          scheduleStep(node, this.step, t, this.dur);
         }
       }
       this.step++;
@@ -1030,13 +1040,13 @@ function applyEffectDeltas(node, newCh) {
   if (old.vol !== nw.vol) {
     node.volumeGain.gain.setTargetAtTime(nw.vol, now, tc);
   }
-  const newLPF = nw.lpf !== null ? nw.lpf : LPF_OPEN;
-  const oldLPF = old.lpf !== null ? old.lpf : LPF_OPEN;
+  const newLPF = nw.lpf ?? LPF_OPEN;
+  const oldLPF = old.lpf ?? LPF_OPEN;
   if (newLPF !== oldLPF) {
     node.filterLPF.frequency.setTargetAtTime(newLPF, now, tc);
   }
-  const newHPF = nw.hpf !== null ? nw.hpf : HPF_OPEN;
-  const oldHPF = old.hpf !== null ? old.hpf : HPF_OPEN;
+  const newHPF = nw.hpf ?? HPF_OPEN;
+  const oldHPF = old.hpf ?? HPF_OPEN;
   if (newHPF !== oldHPF) {
     node.filterHPF.frequency.setTargetAtTime(newHPF, now, tc);
   }
