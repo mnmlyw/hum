@@ -1,11 +1,24 @@
-import { test, expect, devices } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { gotoApp, applyEdit } from './helpers.js';
 
-// Mobile UI is gated behind `(hover: none) and (pointer: coarse)`. Run this
-// spec under an emulated touch device so the media query matches. Pixel 5 is
-// Chromium-based, so it reuses the existing browser cache (iPhone profiles
-// would force a WebKit install we don't otherwise need).
-test.use(devices['Pixel 5']);
+// iPhone 17 Pro isn't in Playwright's device registry yet (latest 1.59.1
+// stops at iPhone 15 Pro). Hand-spec the relevant fields based on the
+// shipped device — logical viewport 402×874, DPR 3, WebKit-backed Safari.
+// What this test actually exercises is the (hover:none, pointer:coarse)
+// media query plus tap input; the exact viewport pixels aren't load-bearing.
+const iPhone17Pro = {
+  userAgent:
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 19_0 like Mac OS X) ' +
+    'AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.5 Mobile/15E148 Safari/604.1',
+  viewport: { width: 402, height: 874 },
+  screen: { width: 402, height: 874 },
+  deviceScaleFactor: 3,
+  isMobile: true,
+  hasTouch: true,
+  defaultBrowserType: 'webkit'
+};
+
+test.use(iPhone17Pro);
 
 test('mobile-toolbar is visible on coarse-pointer devices', async ({ page }) => {
   await gotoApp(page);
