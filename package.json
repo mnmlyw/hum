@@ -4,10 +4,17 @@
   "type": "module",
   "scripts": {
     "test": "node --test test.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:all": "npm run lint && npm run check:spec && npm test && npm run test:e2e",
+    "check:spec": "node tools/check-spec.js",
+    "lint": "eslint test.js tests-e2e tools",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@playwright/test": "^1.47.0",
-    "fast-check": "^4.7.0"
+    "eslint": "^10.2.1",
+    "fast-check": "^4.7.0",
+    "globals": "^17.5.0",
+    "husky": "^9.1.7"
   }
 }

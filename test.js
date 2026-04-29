@@ -14,11 +14,11 @@ src = src.replace(/class Scheduler[\s\S]*$/, '');
 
 // Expose parser and helpers via module scope
 const module = {};
-const code = src + '\nmodule.exports = { NOTE_FREQ, NOTE_NAMES, FLAT_MAP, WAVEFORMS, EFFECT_NAMES, parse, parseNum };';
+const code = src + '\nmodule.exports = { NOTE_FREQ, NOTE_NAMES, WAVEFORMS, parse, parseNum };';
 const fn = new Function('module', code);
 fn(module);
 
-const { NOTE_FREQ, NOTE_NAMES, FLAT_MAP, WAVEFORMS, EFFECT_NAMES, parse, parseNum } = module.exports;
+const { NOTE_FREQ, NOTE_NAMES, WAVEFORMS, parse, parseNum } = module.exports;
 
 // ── Note Frequency Table ────────────────────────────────────────────
 
