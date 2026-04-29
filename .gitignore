@@ -1,4 +1,12 @@
 *.hum
+# Demo fixtures: tracked because test.js parses them and they ship as
+# load examples. User-saved hums (any other *.hum) stay ignored.
+!glass.hum
+!neon-drift.hum
+!tidal-memory.hum
+!slow-erosion.hum
+!phosphene.hum
+!dust-and-iron.hum
 node_modules/
 test-results/
 playwright-report/

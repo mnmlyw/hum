@@ -1,0 +1,39 @@
+bpm 52
+
+-- slow erosion
+earth sin                                    -- 7 steps
+  a1 a1 a1 a1 a1 g1 g1
+  : vol .14 lpf 120
+
+tide sin                                     -- 11 steps
+  e2 e2 e2 e2 e2 e2 d2 d2 d2 d2 d2
+  : vol .1 lpf 300
+
+moss tri                                     -- 9 steps
+  a2 a2 a2 c3 c3 c3 e3 e3 e3
+  : vol .07 lpf 600
+
+fog sin                                      -- 16 steps
+  e3 e3 e3 e3 e3 e3 e3 e3
+  g3 g3 g3 g3 g3 g3 g3 g3
+  : vol .06 lpf 700
+
+haze tri                                     -- 19 steps
+  . . . . a3 . . . . .
+  . . . . . e3 . . .
+  : vol .15
+
+stone sin                                    -- 17 steps
+  . . . . . . . b4 .
+  . . . . . . . .
+  : vol .12
+
+rain noise                                   -- 23 steps
+  . . . . . . . . . . .
+  x . . . . . . . . . . .
+  : vol .02 hpf 4k decay .06
+
+breath noise                                 -- 29 steps
+  . . . . . . . . . . . . . . .
+  . . . . . . x . . . . . . .
+  : vol .015 hpf 1k lpf 3k decay .2

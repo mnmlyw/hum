@@ -1,0 +1,92 @@
+bpm 96
+
+-- glass
+lead tri
+  . . f#4 . a4 . c#5 . | d5 . . . c#5 . a4 .   -- A: verse
+  . . d4 . f#4 . a4 .  | b4 . . . a4 . . .
+  . . b4 . d5 . f#5 .  | e5 . . . d5 . b4 .
+  . . c#5 . e5 . . .   | d5 . c#5 . a4 . . .
+  . . f#4 . a4 . d5 .  | e5 . . . d5 . a4 .   -- A': variation
+  . . d4 . f#4 . b4 .  | c#5 . . . b4 . . .
+  . . f#4 . a4 . c#5 . | d5 . . . . . . .     -- B: open
+  . . . . . . . .      | . . . . . . . .
+  . . a4 . d5 . f#5 .  | g5 . . . f#5 . d5 .  -- C: climax
+  . . f#5 . e5 . d5 .  | c#5 . . . a4 . . .
+  . . b4 . d5 . f#5 .  | e5 . . . d5 . b4 .   -- A: return
+  . . c#5 . e5 . . .   | d5 . . . . . . .
+  : vol .5
+
+arp sin
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4  -- Dmaj7
+  b2 d3 f#3 a3 f#3 d3 f#3 a3  | b2 d3 f#3 a3 f#3 d3 f#3 a3   -- Bm7
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4  -- Dmaj7
+  b2 d3 f#3 a3 f#3 d3 f#3 a3  | b2 d3 f#3 a3 f#3 d3 f#3 a3   -- Bm7
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4  -- Dmaj7
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4
+  g3 b3 d4 f#4 d4 b3 d4 f#4   | g3 b3 d4 f#4 d4 b3 d4 f#4   -- Gmaj7 B
+  g3 b3 d4 g4 d4 b3 g3 b3     | g3 b3 d4 g4 d4 b3 g3 b3
+  e3 g#3 b3 e4 b3 g#3 b3 e4   | e3 g#3 b3 e4 b3 g#3 b3 e4   -- E  C
+  a3 c#4 e4 a4 e4 c#4 e4 a4   | a3 c#4 e4 a4 e4 c#4 e4 a4   -- A
+  g3 b3 d4 f#4 d4 b3 d4 f#4   | g3 b3 d4 f#4 d4 b3 d4 f#4   -- Gmaj7
+  a3 c#4 e4 a4 e4 c#4 a3 e3   | a3 c#4 e4 a4 e4 c#4 a3 e3   -- A (fall)
+  : vol .12 lpf 2k
+
+pad sin
+  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
+  b2 b2 b2 b2 b2 b2 b2 b2 | b2 b2 b2 b2 b2 b2 b2 b2
+  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
+  b2 b2 b2 b2 b2 b2 b2 b2 | b2 b2 b2 b2 b2 b2 b2 b2
+  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
+  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
+  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3  -- B
+  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3
+  e3 e3 e3 e3 e3 e3 e3 e3 | e3 e3 e3 e3 e3 e3 e3 e3  -- C
+  a3 a3 a3 a3 a3 a3 a3 a3 | a3 a3 a3 a3 a3 a3 a3 a3
+  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3
+  a3 a3 a3 a3 a3 a3 a3 a3 | a3 a3 a3 a3 a3 a3 a3 a3
+  : vol .08 lpf 600
+
+bass saw
+  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .  -- Dmaj7
+  b1 . . b1 . . b2 . | b1 . . b1 . . b2 .  -- Bm7
+  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .
+  b1 . . b1 . . b2 . | b1 . . b1 . . b2 .
+  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .  -- A'
+  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .
+  g2 . . g2 . . g3 . | g2 . . g2 . . g3 .  -- B
+  g2 . . . . . . .   | . . . . . . . .
+  e2 . . e2 . . e3 . | a2 . . a2 . . a3 .  -- C
+  a2 . . a2 . . a3 . | a2 . . a2 . . a3 .
+  g2 . . g2 . . g3 . | g2 . . g2 . . g3 .
+  a2 . . a2 . . a3 . | a2 . . a2 . . e2 .
+  : lpf 200
+
+kick noise
+  x . . . . . x . | . . . . x . . .  -- A
+  x . . . . . x . | . . . . x . . .
+  x . . . . . x . | . . . . x . . .
+  x . . . . . x . | . . . . x . . .
+  x . . . . . x . | . . . . x . . .  -- A'
+  x . . . . . x . | . . . . x . . .
+  x . . . . . . . | . . . . . . . .  -- B
+  . . . . . . . . | . . . . . . . .
+  x . . . . . x . | x . . . . . x .  -- C
+  x . . . . . x . | . . x . . . x .
+  x . . . . . x . | . . . . x . . .
+  x . . . . . x . | . . . . . . . .
+  : lpf 50 decay .06
+
+hat noise
+  . . x . . . x . | . . x . . . x .  -- A
+  . . x . . . x . | . . x . . . x .
+  . . x . . . x . | . . x . . . x .
+  . . x . . . x . | . . x . . x x .
+  . . x . . . x . | . . x . . . x .  -- A'
+  . . x . . x x . | . . x . . . x .
+  . . x . . . . . | . . . . . . . .  -- B
+  . . . . . . . . | . . . . . . . .
+  . . x . . x . . | . . x . . x . .  -- C
+  . . x . . x . . | . x x . . . x .
+  . . x . . . x . | . . x . . . x .
+  . . x . . . x . | . . . . . . . .
+  : hpf 8k decay .03

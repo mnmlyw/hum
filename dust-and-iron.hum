@@ -1,0 +1,55 @@
+bpm 108
+
+-- dust and iron
+whistle tri
+  . . . . e5 . d5 .  | b4 . . . . . . .
+  . . . . e5 . g5 .  | f#5 . . . e5 . d5 .
+  . . . . b4 . d5 .  | e5 . . . . . . .
+  . . d5 . b4 . a4 .  | b4 . . . . . . .
+  : vol .5
+
+twang sqr
+  . . . . b3 . a3 .  | g3 . . . . . . .
+  . . . . b3 . d4 .  | d4 . . . b3 . a3 .
+  . . . . g3 . a3 .  | b3 . . . . . . .
+  . . a3 . g3 . f#3 .  | g3 . . . . . . .
+  : vol .15
+
+bass saw
+  e2 . . . e2 . e3 .  | e2 . . . e2 . . .   -- Em
+  e2 . . . e2 . e3 .  | e2 . . . e2 . . .
+  g2 . . . g2 . g3 .  | g2 . . . g2 . . .   -- G
+  b1 . . . d2 . e2 .  | e2 . . . . . . .   -- B→Em
+  : lpf 250
+
+gallop sin
+  e3 . e4 . e3 . e4 .  -- Em
+  e3 . e4 . e3 . e4 .
+  g3 . b3 . g3 . b3 .  -- G
+  b2 . d3 . b2 . e3 .  -- B→Em
+  : vol .08 lpf 800
+
+drone sin
+  b2 b2 b2 b2 b2 b2 b2 b2
+  b2 b2 b2 b2 b2 b2 b2 b2
+  d3 d3 d3 d3 d3 d3 d3 d3
+  b2 b2 b2 b2 b2 b2 b2 b2
+  : vol .06 lpf 400
+
+kick noise
+  x . . . . . x .  | . . x . . . . .
+  x . . . . . x .  | . . x . . . . .
+  x . . . . . x .  | . . x . . . . .
+  x . . x . . x .  | x . x . . . . .
+  : lpf 50 decay .06
+
+snr noise
+  . . . . x . . .  | . . . . . . x .
+  . . . . x . . .  | . . . . . . x .
+  . . . . x . . .  | . . . . . . x .
+  . . . . x . . x  | . . . . x . x .
+  : lpf 3k hpf 800 decay .04
+
+dust noise
+  . x . . . x . .  | . . . x . . . x
+  : vol .03 hpf 6k decay .015
