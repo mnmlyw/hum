@@ -4,6 +4,17 @@ All notable changes to hum. Newest first.
 
 ## Unreleased
 
+### Mobile UI
+- Pattern-token toolbar appears above the canvas on coarse-pointer devices;
+  taps insert `.` `x` `|` `:` `#` `bpm` at the caret.
+- iOS safe-area insets honoured on editor (top, sides) and footer (bottom).
+- Editor font-size raised to 16 px on touch to suppress iOS focus-zoom;
+  footer buttons get thumb-sized padding.
+- Three Playwright tests under an emulated Pixel 5 viewport guard the new
+  behavior. Desktop layout unchanged.
+
+
+
 ### Tooling
 - `npm run test:all` runs Node + Playwright in one command.
 - `npm run check:spec` verifies SPEC.md claims still match the code.

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>hum</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -46,6 +46,10 @@ html, body {
   position: absolute;
   inset: 0;
   padding: 32px 32px 48px;
+  /* Honour iOS safe-area insets when present (notch, side bezel). */
+  padding-top: max(32px, env(safe-area-inset-top));
+  padding-left: max(32px, env(safe-area-inset-left));
+  padding-right: max(32px, env(safe-area-inset-right));
   font-family: var(--font);
   font-size: 14px;
   line-height: 1.7;
@@ -83,6 +87,10 @@ html, body {
   font-size: 14px;
   line-height: 1.7;
   padding: 32px 32px 48px;
+  /* Match #highlight's safe-area-aware padding so the layers stay aligned. */
+  padding-top: max(32px, env(safe-area-inset-top));
+  padding-left: max(32px, env(safe-area-inset-left));
+  padding-right: max(32px, env(safe-area-inset-right));
   border: none;
   outline: none;
   resize: none;
@@ -101,6 +109,10 @@ html, body {
   z-index: 2;
   border-top: 1px solid #1e2124;
   background: var(--bg);
+  /* Bottom inset keeps the home indicator from overlapping controls. */
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 #canvas {
@@ -177,6 +189,60 @@ html, body {
   white-space: nowrap;
   flex-shrink: 0;
 }
+
+/* ── Mobile / touch ─────────────────────────────────────────────────
+   Activated on coarse-pointer, no-hover devices (phones + tablets).
+   Desktop browsers — including the Playwright suite's Chromium —
+   never match these queries, so existing tests stay unaffected. */
+#mobile-toolbar { display: none; }
+
+@media (hover: none) and (pointer: coarse) {
+  /* iOS auto-zooms <input>/<textarea> when font-size < 16px on focus.
+     Bumping to 16px keeps zoom from re-flowing the editor mid-tap. */
+  #editor, #highlight {
+    font-size: 16px;
+    padding-bottom: 56px;
+  }
+
+  /* Larger tap targets on the controls row. */
+  #controls { padding: 8px 16px; gap: 16px; }
+  #controls button {
+    font-size: 13px;
+    padding: 10px 4px;
+    min-height: 36px;
+  }
+
+  #info-bar { padding: 8px 16px; font-size: 13px; }
+  #channel-info { font-size: 13px; }
+  .step-dot { width: 6px; height: 6px; }
+
+  /* Pattern-token input toolbar — common tokens that are awkward to
+     reach on mobile keyboards. Inserts at the caret on tap. */
+  #mobile-toolbar {
+    display: flex;
+    overflow-x: auto;
+    gap: 6px;
+    padding: 8px 12px;
+    background: var(--bg);
+    border-top: 1px solid #1e2124;
+    -webkit-overflow-scrolling: touch;
+  }
+  #mobile-toolbar button {
+    flex-shrink: 0;
+    min-width: 44px;
+    height: 36px;
+    background: #22252a;
+    border: none;
+    border-radius: 6px;
+    color: var(--fg);
+    font-family: var(--font);
+    font-size: 16px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #mobile-toolbar button:active { background: #32363c; }
+}
 </style>
 </head>
 <body>
@@ -187,6 +253,14 @@ html, body {
       placeholder="bpm 120&#10;bass saw c2 . e2 . g2 . c2 e2 : lpf 400"></textarea>
   </div>
   <div id="footer">
+    <div id="mobile-toolbar">
+      <button data-insert=". " aria-label="rest">.</button>
+      <button data-insert="x " aria-label="trigger">x</button>
+      <button data-insert="| " aria-label="bar line">|</button>
+      <button data-insert=" : " aria-label="effects separator">:</button>
+      <button data-insert="#" aria-label="sharp">#</button>
+      <button data-insert="bpm " aria-label="bpm">bpm</button>
+    </div>
     <canvas id="canvas"></canvas>
     <div id="info-bar">
       <div id="step-bar"></div>
@@ -921,15 +995,31 @@ editor.addEventListener('scroll', () => {
 });
 
 // Tab handling
+function insertAtCaret(text) {
+  const start = editor.selectionStart;
+  const end = editor.selectionEnd;
+  editor.value = editor.value.slice(0, start) + text + editor.value.slice(end);
+  editor.selectionStart = editor.selectionEnd = start + text.length;
+  onInput();
+}
+
 editor.addEventListener('keydown', (e) => {
   if (e.key === 'Tab') {
     e.preventDefault();
-    const start = editor.selectionStart;
-    const end = editor.selectionEnd;
-    editor.value = editor.value.slice(0, start) + '  ' + editor.value.slice(end);
-    editor.selectionStart = editor.selectionEnd = start + 2;
-    onInput();
+    insertAtCaret('  ');
   }
+});
+
+// Mobile input toolbar — taps insert tokens at the caret. The toolbar
+// itself is hidden on desktop via a coarse-pointer media query, so this
+// listener is harmless when the buttons aren't visible.
+document.getElementById('mobile-toolbar').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-insert]');
+  if (!btn) return;
+  // mousedown would be lower-latency, but we want the tap to still
+  // register if the user drags slightly before lifting their finger.
+  editor.focus();
+  insertAtCaret(btn.dataset.insert);
 });
 
 editor.addEventListener('input', () => {

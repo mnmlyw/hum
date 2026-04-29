@@ -136,8 +136,16 @@ Playing notes get inverse video (cyan background, dark text). Playing rests brig
 
 ## Branches
 
-- `main` — stable
-- `live-coding` — in-place audio updates, grace period, beat grid sync
-- `mobile-ui` — input toolbar, safe areas, touch-friendly layout
+- `main` — stable; includes live-coding and mobile UI
 - `note-drag` — pitch shift by dragging notes
 - `bottom-bar-redesign` — floating translucent footer
+
+## Mobile
+
+Activated by `(hover: none) and (pointer: coarse)`:
+
+- iOS safe-area insets respected on the editor (top/sides) and footer (bottom).
+- Editor font-size raised to 16 px to suppress iOS focus-zoom.
+- Footer button padding increased for thumb-sized tap targets.
+- A pattern-token toolbar above the canvas inserts `.`, `x`, `|`, `:`, `#`,
+  `bpm` at the caret on tap. Hidden on desktop.
