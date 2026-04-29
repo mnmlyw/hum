@@ -33,8 +33,10 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      # Always run the install step: --with-deps installs apt packages that
+      # the browser-binary cache doesn't preserve, and `playwright install`
+      # itself is a no-op for browsers already present in the cache dir.
+      - name: Install Playwright browsers + system deps
         run: npx playwright install --with-deps chromium webkit
 
       - run: npm run test:e2e
