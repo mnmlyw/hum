@@ -994,10 +994,10 @@ function swapWaveform(node, newWaveform, applyAt) {
   }, delayMs);
 }
 
-function addChannel(ch, registryKey, insertIdx, applyAt) {
+function addChannel(ch, registryKey, applyAt) {
   const node = createChannelNode(ch, registryKey);
   node.notBefore = applyAt;
-  channelNodes.splice(insertIdx, 0, node);
+  channelNodes.push(node);
   channelNodesByName.set(registryKey, node);
 }
 
@@ -1081,19 +1081,22 @@ function liveUpdate(hum) {
     node.channel = newCh;
   }
 
-  // 4. Add new channels at the boundary, in parse position.
+  // 4. Add new channels at the boundary; ordering is finalized by step 5.
   for (let i = 0; i < hum.channels.length; i++) {
     const key = newKeys[i];
     if (!oldKeySet.has(key)) {
-      addChannel(hum.channels[i], key, i, boundary);
+      addChannel(hum.channels[i], key, boundary);
       structuralChange = true;
     }
   }
 
-  // 5. Reorder channelNodes to match parse order (visual chIdx alignment).
-  const reordered = newKeys.map(k => channelNodesByName.get(k)).filter(Boolean);
+  // 5. Rebuild channelNodes in parse order so visual chIdx aligns and the
+  //    scheduler iterates in a deterministic sequence.
   channelNodes.length = 0;
-  for (const n of reordered) channelNodes.push(n);
+  for (const k of newKeys) {
+    const node = channelNodesByName.get(k);
+    if (node) channelNodes.push(node);
+  }
 
   // 6. Apply waveform swaps + rewind scheduler so the boundary step onward is
   //    rewritten against the new graph (ensures new channels fire on boundary
