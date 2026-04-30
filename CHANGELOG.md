@@ -4,6 +4,25 @@ All notable changes to hum. Newest first.
 
 ## Unreleased
 
+### Performance
+- `drawViz` skips the canvas redraw when the analyser's time-domain
+  buffer hasn't changed (rolling stride hash). Cuts idle GPU work
+  during silent passages and sustained tones to near-zero.
+- Step-dot active class is edge-triggered: only the two dots that
+  flipped get touched per frame instead of toggling .active on all
+  64 dots. Mirrors the existing prevPlaying pattern.
+- `updateHighlight` memoizes the rendered HTML and skips the
+  `innerHTML` rewrite + playhead-map rebuild when the new output
+  matches the previous one (whitespace-only edits, undo to a known
+  state, etc.).
+- Pending waveform-swap cleanups now sit in a bounded queue
+  (`MAX_PENDING_SWAPS = 16`); excess older entries are force-flushed
+  rather than allowed to pile up if a user cycles waveforms faster
+  than the 210 ms cleanup window. `teardownGraph` drains the queue
+  on stop.
+- `tools/check-spec.js` replaced two inline-`new RegExp` loops with
+  single alternation matches.
+
 ### Behavior
 - **Cmd/Ctrl+Enter while playing now force-applies the pending edit**
   instead of stopping playback. Cancels the 300 ms debounce and runs

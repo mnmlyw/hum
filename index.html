@@ -483,6 +483,7 @@ let analyserNode = null;
 const channelNodes = [];         // ordered view (parse order); never reassigned
 const channelNodesByName = new Map(); // registry keyed by stable name#occurrence
 const pendingRemovals = new Set();    // nodes spliced out of channelNodes but not yet disconnected
+const pendingSwaps = new Set();        // active waveform-swap cleanup timers, capped via MAX_PENDING_SWAPS
 let scheduler = null;
 let isPlaying = false;
 let starting = false;
@@ -608,6 +609,13 @@ function teardownGraph() {
   // playing through the still-connected graph until the boundary.
   for (const node of pendingRemovals) silenceAndDisconnect(node);
   pendingRemovals.clear();
+  // Drain any pending waveform-swap cleanups so old oscillators don't outlive
+  // the graph that hosted them.
+  for (const entry of pendingSwaps) {
+    clearTimeout(entry.timer);
+    entry.cleanup();
+  }
+  pendingSwaps.clear();
   channelNodes.length = 0;
   channelNodesByName.clear();
 }
@@ -727,6 +735,8 @@ let vizBuffer = null;
 let stepSpanMap = {};
 let prevPlaying = [];
 let wasPlaying = false;
+let lastBufHash = -1;
+let lastActiveDotIdx = -1;
 
 function resizeCanvas() {
   canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -751,43 +761,57 @@ function buildStepDots(count) {
 buildStepDots(8);
 
 function drawViz() {
-  const w = canvas.clientWidth;
-  const h = canvas.clientHeight;
-
-  ctx.clearRect(0, 0, w, h);
-
   if (analyserNode && isPlaying) {
     wasPlaying = true;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+
     const bufLen = analyserNode.frequencyBinCount;
     if (!vizBuffer || vizBuffer.length !== bufLen) vizBuffer = new Uint8Array(bufLen);
     analyserNode.getByteTimeDomainData(vizBuffer);
 
-    ctx.beginPath();
-    const sliceWidth = w / bufLen;
-    let x = 0;
-    for (let i = 0; i < bufLen; i++) {
-      const v = vizBuffer[i] / 128.0;
-      const y = (v * h) / 2;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-      x += sliceWidth;
+    // Cheap rolling hash over a stride of the buffer. If the time-domain
+    // samples haven't changed (silent passages, sustained tones) skip the
+    // whole canvas redraw — biggest idle-CPU win during quiet patterns.
+    let hash = 0;
+    for (let i = 0; i < bufLen; i += 32) hash = (hash * 31 + vizBuffer[i]) | 0;
+    if (hash !== lastBufHash) {
+      lastBufHash = hash;
+      ctx.clearRect(0, 0, w, h);
+      ctx.beginPath();
+      const sliceWidth = w / bufLen;
+      let x = 0;
+      for (let i = 0; i < bufLen; i++) {
+        const v = vizBuffer[i] / 128.0;
+        const y = (v * h) / 2;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      ctx.lineTo(w, h / 2);
+      ctx.strokeStyle = 'rgba(94, 241, 255, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(94, 241, 255, 0.04)';
+      ctx.fill();
     }
-    ctx.lineTo(w, h / 2);
-    ctx.strokeStyle = 'rgba(94, 241, 255, 0.35)';
-    ctx.lineWidth = 1;
-    ctx.stroke();
-    ctx.lineTo(w, h);
-    ctx.lineTo(0, h);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(94, 241, 255, 0.04)';
-    ctx.fill();
 
-    // Update step dots + note playhead
+    // Step dots + note playhead. Time-based; updated even when the waveform
+    // hash didn't change.
     if (scheduler && stepDots.length > 0) {
       const vs = scheduler.getVisualStep();
       const activeIdx = vs % stepDots.length;
-      for (let i = 0; i < stepDots.length; i++) {
-        stepDots[i].classList.toggle('active', i === activeIdx);
+      // Edge-trigger: only flip the two dots that actually changed instead
+      // of toggling .active on all 64 every frame.
+      if (activeIdx !== lastActiveDotIdx) {
+        if (lastActiveDotIdx >= 0 && stepDots[lastActiveDotIdx]) {
+          stepDots[lastActiveDotIdx].classList.remove('active');
+        }
+        if (stepDots[activeIdx]) stepDots[activeIdx].classList.add('active');
+        lastActiveDotIdx = activeIdx;
       }
       for (const el of prevPlaying) el.classList.remove('playing');
       prevPlaying = [];
@@ -799,10 +823,15 @@ function drawViz() {
     }
   } else if (wasPlaying) {
     // One-shot cleanup on the playing → not-playing edge, so we don't burn
-    // ~3,840 classList ops/sec (60fps × up to 64 step dots) while idle.
+    // classList / canvas ops while idle.
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    ctx.clearRect(0, 0, w, h);
     for (const dot of stepDots) dot.classList.remove('active');
     for (const el of prevPlaying) el.classList.remove('playing');
     prevPlaying = [];
+    lastActiveDotIdx = -1;
+    lastBufHash = -1;
     wasPlaying = false;
   }
 
@@ -959,6 +988,8 @@ function highlightLine(line, prevIsChannel, chIdx, stepCounter) {
   return esc(code) + (comment ? span('cm', comment) : '');
 }
 
+let lastHighlightHtml = null;
+
 function updateHighlight() {
   const text = editor.value;
   const lines = text.split('\n');
@@ -981,7 +1012,13 @@ function updateHighlight() {
     }
     out.push(highlightLine(line, prevIsChannel, chIdx, stepCounter));
   }
-  highlight.innerHTML = out.join('\n') + '\n';
+  const newHtml = out.join('\n') + '\n';
+  // Memoize the rendered output. When typing produces no visible token change
+  // (whitespace-only edits, undo/redo back to a known state), we can skip the
+  // innerHTML rewrite and the playhead-map rebuild entirely.
+  if (newHtml === lastHighlightHtml) return;
+  lastHighlightHtml = newHtml;
+  highlight.innerHTML = newHtml;
   stepSpanMap = {};
   for (const el of highlight.querySelectorAll('.pt')) {
     stepSpanMap[el.dataset.ch + '-' + el.dataset.s] = el;
@@ -1095,12 +1132,31 @@ function swapWaveform(node, newWaveform, applyAt) {
   node.source = newSource;
   node.sourceGain = newSrcGain;
 
+  // Bound the pending-cleanup queue. A user cycling waveforms faster than
+  // ~210ms could otherwise pile up arbitrarily many oscillators awaiting
+  // disconnect. Force-flush the oldest if we're at the cap.
+  const MAX_PENDING_SWAPS = 16;
+  if (pendingSwaps.size >= MAX_PENDING_SWAPS) {
+    const oldest = pendingSwaps.values().next().value;
+    clearTimeout(oldest.timer);
+    oldest.cleanup();
+    pendingSwaps.delete(oldest);
+  }
+
+  const entry = {
+    timer: 0,
+    cleanup() {
+      try { oldSource.stop(); } catch (e) {}
+      try { oldSource.disconnect(); } catch (e) {}
+      try { oldSrcGain.disconnect(); } catch (e) {}
+    }
+  };
   const delayMs = Math.max(0, (applyAt - audioCtx.currentTime) * 1000) + 60;
-  setTimeout(() => {
-    try { oldSource.stop(); } catch (e) {}
-    try { oldSource.disconnect(); } catch (e) {}
-    try { oldSrcGain.disconnect(); } catch (e) {}
+  entry.timer = setTimeout(() => {
+    pendingSwaps.delete(entry);
+    entry.cleanup();
   }, delayMs);
+  pendingSwaps.add(entry);
 }
 
 function addChannel(ch, registryKey, applyAt) {

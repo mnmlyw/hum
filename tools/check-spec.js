@@ -40,9 +40,12 @@ const checks = [
     const codeEffects = m[1].match(/'(\w+)'/g).map((s) => s.slice(1, -1)).sort();
     assert.deepEqual(codeEffects, ['decay', 'hpf', 'lpf', 'vol'],
       `EFFECT_NAMES drifted from SPEC effect table: code = ${codeEffects.join(',')}`);
-    for (const fx of ['lpf', 'hpf', 'decay', 'vol']) {
-      assert.match(spec, new RegExp(`\\| \`${fx}\``), `SPEC effect table missing ${fx}`);
-    }
+    // One alternation regex instead of constructing four — same correctness,
+    // identifies missing entries individually via the post-match diff.
+    const fxFound = (spec.match(/\|\s+`(lpf|hpf|decay|vol)`/g) || [])
+      .map((s) => s.match(/`(\w+)`/)[1]);
+    const fxMissing = ['lpf', 'hpf', 'decay', 'vol'].filter((f) => !fxFound.includes(f));
+    assert.deepEqual(fxMissing, [], `SPEC effect table missing: ${fxMissing.join(', ')}`);
   }],
 
   ['Waveforms = exactly {sin, tri, sqr, saw, noise}', () => {
@@ -51,9 +54,10 @@ const checks = [
     const codeWaves = m[1].match(/'(\w+)'/g).map((s) => s.slice(1, -1)).sort();
     assert.deepEqual(codeWaves, ['noise', 'saw', 'sin', 'sqr', 'tri'],
       `WAVEFORMS drifted: code = ${codeWaves.join(',')}`);
-    for (const wf of ['sin', 'tri', 'sqr', 'saw', 'noise']) {
-      assert.match(spec, new RegExp(`\`${wf}\``), `SPEC waveform list missing ${wf}`);
-    }
+    const wfFound = (spec.match(/`(sin|tri|sqr|saw|noise)`/g) || [])
+      .map((s) => s.match(/`(\w+)`/)[1]);
+    const wfMissing = ['sin', 'tri', 'sqr', 'saw', 'noise'].filter((w) => !wfFound.includes(w));
+    assert.deepEqual(wfMissing, [], `SPEC waveform list missing: ${wfMissing.join(', ')}`);
   }],
 
   ['Signal chain: source → sourceGain → envelopeGain → hpf → lpf → volumeGain → analyser', () => {
