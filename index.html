@@ -1363,7 +1363,14 @@ document.addEventListener('drop', (e) => {
 document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
     e.preventDefault();
-    playBtn.click();
+    if (isPlaying) {
+      // Force-apply the latest edit immediately, bypassing the 300ms debounce.
+      // Lets power users land structural changes without waiting on the timer.
+      clearTimeout(debounceTimer);
+      onInput();
+    } else {
+      playBtn.click();
+    }
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();

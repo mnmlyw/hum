@@ -33,7 +33,7 @@ A hum is a sequence of lines. Each line is one of:
 <name> <waveform> <pattern tokens...> : <effect pairs...>
 ```
 
-- **name** — any identifier (`kick`, `bass`, `lead`, `pad2`)
+- **name** — any non-whitespace token (`kick`, `bass`, `lead`, `pad2`); duplicates within one hum get `#2`, `#3`… registry keys
 - **waveform** — one of: `sin`, `tri`, `sqr`, `saw`, `noise`
 - **pattern** — space-separated tokens (see below)
 - `:` — separates pattern from effects (optional if no effects)
@@ -42,9 +42,9 @@ A hum is a sequence of lines. Each line is one of:
 ### Pattern tokens
 
 - **note** — `c4`, `eb3`, `f#5` (letter + optional sharp/flat + octave 0-8)
-- **trigger** — `x` (for noise/percussive hits)
+- **trigger** — `x` (envelope fires using the channel's most recent frequency; primarily for noise/percussive hits, but accepted on any waveform)
 - **rest** — `.` (also `_`)
-- **bar line** — `|` (cosmetic, ignored by parser)
+- **separators** — `|` and `,` (cosmetic, ignored by parser; e.g. `c4 | e4` or `c4, e4, g4`)
 
 Each token is one step. A step is an 8th note. 8 steps = 1 bar of 4/4.
 
@@ -121,16 +121,23 @@ Playing notes get inverse video (cyan background, dark text). Playing rests brig
 
 ## Controls
 
-- **play/stop** — button or Cmd+Enter
-- **apply** — appears when editing during playback, applies changes (or Cmd+Enter while playing)
-- **load** — opens file picker for `.hum` files
-- **save** — downloads `.hum` file (or Cmd+S), named from first `-- comment`
-- **drag-and-drop** `.hum` file onto the page to load it
+Edits during playback apply automatically: the editor's `input` event runs the
+parser and live-updates the audio graph after a 300 ms debounce. Pattern and
+effect changes take effect on the next scheduler tick; structural changes
+(adding, removing, or swapping waveform on a channel) are quantized to the
+next step boundary.
+
+- **play / stop** — button. Cmd/Ctrl+Enter starts playback when stopped.
+- **force-apply** — Cmd/Ctrl+Enter *while playing* cancels the pending
+  debounce and applies the latest edit immediately.
+- **load** — opens file picker for `.hum` files.
+- **save** — downloads `.hum` file (or Cmd+S), named from the first `-- comment`.
+- **drag-and-drop** — drop a `.hum` file onto the page to load it.
 
 ## Visualizer
 
 - Canvas waveform strip (48px) in footer
-- Step dot indicator: one dot per step of longest pattern
+- Step dot indicator: one dot per step of longest pattern (visually capped at 64; longer patterns still play correctly, only the strip is truncated)
 - Downbeat dots (every 8 steps) brighter than offbeats
 - Active dot: cyan
 

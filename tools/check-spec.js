@@ -89,8 +89,36 @@ const checks = [
   }],
 
   ['300ms input debounce', () => {
-    assert.match(spec, /300ms debounce/);
+    assert.match(spec, /300\s*ms debounce/);
     assert.match(html, /setTimeout\(onInput,\s*300\)/);
+  }],
+
+  ['Apply button is documented absent (live-coding replaced it)', () => {
+    // SPEC must not promise an apply button, and the DOM must not contain one.
+    assert.doesNotMatch(spec, /\*\*apply\*\*\s+— appears/i,
+      'SPEC re-introduced the pre-live-coding apply button');
+    assert.doesNotMatch(html, /id=["']apply-btn["']/,
+      'index.html grew an #apply-btn but SPEC says force-apply is keyboard-only');
+  }],
+
+  ['Cmd+Enter branches on isPlaying (force-apply vs play)', () => {
+    assert.match(spec, /Cmd\/Ctrl\+Enter \*while playing\*/i,
+      'SPEC must document the playing-side force-apply behavior');
+    // The keyboard handler must distinguish the two states; flat playBtn.click()
+    // would mean Cmd+Enter stops while playing instead of force-applying.
+    const block = html.match(/key === 'Enter'[\s\S]{0,1000}?(?:\}\);|playBtn\.click\(\)\s*;\s*\})/);
+    assert.ok(block, 'Cmd+Enter handler block not found');
+    assert.match(block[0], /if\s*\(\s*isPlaying\s*\)/,
+      'Cmd+Enter handler does not branch on isPlaying');
+    assert.match(block[0], /onInput\s*\(\s*\)/,
+      'Cmd+Enter playing branch does not call onInput()');
+  }],
+
+  ['Comma is an accepted (cosmetic) pattern separator', () => {
+    assert.match(spec, /\bseparators\b[\s\S]{0,80}`,`/,
+      'SPEC pattern-tokens list must mention `,` alongside `|`');
+    assert.match(html, /t !== '\|' && t !== ','/,
+      'parser dropped the comma filter');
   }],
 ];
 

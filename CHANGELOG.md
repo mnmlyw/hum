@@ -4,6 +4,30 @@ All notable changes to hum. Newest first.
 
 ## Unreleased
 
+### Behavior
+- **Cmd/Ctrl+Enter while playing now force-applies the pending edit**
+  instead of stopping playback. Cancels the 300 ms debounce and runs
+  `onInput()` synchronously, so structural changes land immediately
+  without waiting on the timer. Playback stays alive. Cmd/Ctrl+Enter
+  while stopped continues to start playback.
+
+### SPEC alignment
+- Removed the stale "apply" button entry from Controls — live-coding's
+  debounced auto-application replaced it; SPEC now documents the
+  live-update model and the new Cmd+Enter force-apply path.
+- Pattern tokens: documented `,` as a cosmetic separator alongside `|`
+  (the parser has accepted both since the original release).
+- Triggers: SPEC now describes that `x` fires the envelope at the
+  channel's most recent frequency, not just on noise channels.
+- Channel name relaxed from "any identifier" to "any non-whitespace
+  token", matching what the parser actually accepts.
+- Step-dot indicator: documented the 64-dot visual cap.
+
+### Tooling
+- `tools/check-spec.js` gained 3 asserts (apply absent, Cmd+Enter
+  branches on isPlaying, comma separator) so future drift on these
+  points fails the build.
+
 ### Mobile UI
 - Pattern-token toolbar appears above the canvas on coarse-pointer devices;
   taps insert `.` `x` `|` `:` `#` `bpm` at the caret.
