@@ -95,6 +95,49 @@ test('scheduler survives an edit that introduces a parse error (bad decay)', asy
   expect(await page.evaluate(() => window.__hum.isPlaying)).toBe(true);
 });
 
+test('held note (c4*4) sustains envelope across all 4 step durations', async ({ page }) => {
+  // At bpm 60, step dur = 0.5s. c4*4 holds for 2.0s. Sample envelopeGain
+  // mid-hold (~0.6s in) and just past hold end (~2.1s in).
+  await applyEdit(page, 'bpm 60\nlead saw c4*4 e4');
+  await startPlayback(page);
+
+  // Wait until well into the held portion of the first note.
+  await waitForPhaseDelta(page, 1.2);
+  const midHold = await page.evaluate(
+    () => window.__hum.channelNodesByName.get('lead').envelopeGain.gain.value
+  );
+  expect(midHold).toBeGreaterThan(0.5); // still ringing, not faded
+
+  // Wait until past the hold's end-of-step fade and into e4's note.
+  await waitForPhaseDelta(page, 3);
+  // e4 has retriggered; envelope should be high again.
+  const afterRetrigger = await page.evaluate(
+    () => window.__hum.channelNodesByName.get('lead').envelopeGain.gain.value
+  );
+  expect(afterRetrigger).toBeGreaterThan(0.5);
+});
+
+test('accent (!) is louder than ghost (?) on the same waveform', async ({ page }) => {
+  // Two parallel channels, one accented, one ghosted. RMS of the accent
+  // channel must exceed the ghost channel's by a clear margin.
+  await applyEdit(page, 'bpm 240\naccentch saw c4! c4! c4! c4!\nghostch saw c4? c4? c4? c4?');
+  await startPlayback(page);
+  await waitForPhaseDelta(page, 2);
+
+  const meters = await page.evaluate(() => {
+    const buf = new Uint8Array(128);
+    const sample = (key) => {
+      const a = window.__hum.channelNodesByName.get(key).meter;
+      a.getByteTimeDomainData(buf);
+      let sumSq = 0;
+      for (const v of buf) { const d = v - 128; sumSq += d * d; }
+      return Math.sqrt(sumSq / buf.length);
+    };
+    return { accent: sample('accentch'), ghost: sample('ghostch') };
+  });
+  expect(meters.accent).toBeGreaterThan(meters.ghost * 1.5);
+});
+
 test('stopping playback silences the analyser within a beat', async ({ page }) => {
   await applyEdit(page, 'bpm 120\nbass saw c3 e3 g3 c4');
   await startPlayback(page);

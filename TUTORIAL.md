@@ -81,7 +81,34 @@ indent any line to continue the previous channel. the pattern above
 plays as `c4 e4 g4 c5 g4 e4 c4 .` — one 8-step loop. effects can live on
 their own line too.
 
-## 8. polyrhythm — the trick
+## 8. expressivity per note
+
+three modifiers attach to any token: `*N` (hold for N steps), `!` (accent),
+`?` (ghost note).
+
+```
+bpm 120
+lead sin c4*4 e4 g4 c5
+```
+
+`c4*4` = trigger c4, sustain across 4 step slots without retriggering.
+the pattern is 7 steps total: 4 for the held c4, then e4, g4, c5.
+
+```
+bpm 120
+lead sin c4! c4 c4? c4
+```
+
+four c4s at four dynamics. `c4!` is louder, `c4?` is quieter, bare `c4`
+sits in the middle.
+
+modifiers stack. `c4!*4` and `c4*4!` both = an accented note held for
+four steps. accent + ghost on the same token is an error.
+
+modifiers also work on rests (`.*4` = four rests, useful shorthand) and
+triggers (`x!` = accented hit; `x*4` = sustained noise).
+
+## 9. polyrhythm — the trick
 
 ```
 bpm 120
@@ -93,7 +120,7 @@ the lead has 7 steps, the kick has 8. they loop independently and never
 re-align. give two channels different lengths and you get polyrhythm
 for free. coprime lengths (5 vs 7, 7 vs 11) drift forever.
 
-## 9. live coding
+## 10. live coding
 
 playback runs while you type. edits land after a 300 ms pause:
 
@@ -106,7 +133,7 @@ playback runs while you type. edits land after a 300 ms pause:
 - press **Esc** to stop. press it again with **Cmd/Ctrl+Enter** to start
   fresh. there is no rewind — start always means step 0.
 
-## 10. all together
+## 11. all together
 
 a full mini-song using everything above:
 

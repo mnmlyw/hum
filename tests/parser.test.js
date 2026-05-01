@@ -286,6 +286,98 @@ describe('parser: pattern tokens', () => {
   });
 });
 
+// ── Parser: Per-step Modifiers (phase 2) ────────────────────────────
+
+describe('parser: per-step modifiers', () => {
+  it('bare token defaults vel = 1, hold = 1 (backward compat)', () => {
+    const hum = parse('lead sin c4');
+    const s = hum.channels[0].pattern[0];
+    assert.equal(s.type, 'note');
+    assert.equal(s.vel, 1);
+    assert.equal(s.hold, 1);
+    assert.equal(hum.errors.length, 0);
+  });
+
+  it('accent (!) sets vel above 1', () => {
+    const hum = parse('lead sin c4!');
+    assert.equal(hum.errors.length, 0);
+    assert.ok(hum.channels[0].pattern[0].vel > 1);
+  });
+
+  it('ghost (?) sets vel below 1', () => {
+    const hum = parse('lead sin c4?');
+    assert.equal(hum.errors.length, 0);
+    assert.ok(hum.channels[0].pattern[0].vel < 1);
+  });
+
+  it('hold (*N) consumes N step slots: c4*4 e4 = 5 slots', () => {
+    const hum = parse('lead sin c4*4 e4');
+    assert.equal(hum.errors.length, 0);
+    assert.equal(hum.channels[0].pattern.length, 5);
+    assert.equal(hum.channels[0].pattern[0].type, 'note');
+    assert.equal(hum.channels[0].pattern[0].hold, 4);
+    assert.equal(hum.channels[0].pattern[1].type, 'sustain');
+    assert.equal(hum.channels[0].pattern[2].type, 'sustain');
+    assert.equal(hum.channels[0].pattern[3].type, 'sustain');
+    assert.equal(hum.channels[0].pattern[4].type, 'note');
+    assert.equal(hum.channels[0].pattern[4].hold, 1);
+  });
+
+  it('stacking: c4!*4 and c4*4! both = accented + held', () => {
+    for (const text of ['lead sin c4!*4', 'lead sin c4*4!']) {
+      const hum = parse(text);
+      assert.equal(hum.errors.length, 0, `errors for: ${text}`);
+      const s = hum.channels[0].pattern[0];
+      assert.equal(s.hold, 4, `hold for: ${text}`);
+      assert.ok(s.vel > 1, `vel for: ${text}`);
+    }
+  });
+
+  it('hold on rest: .*3 = three rests', () => {
+    const hum = parse('lead sin .*3');
+    assert.equal(hum.errors.length, 0);
+    assert.equal(hum.channels[0].pattern.length, 3);
+    assert.ok(hum.channels[0].pattern.every(s => s.type === 'rest'));
+  });
+
+  it('hold on trigger: x*4 = trigger + 3 sustains', () => {
+    const hum = parse('lead noise x*4');
+    assert.equal(hum.errors.length, 0);
+    assert.equal(hum.channels[0].pattern.length, 4);
+    assert.equal(hum.channels[0].pattern[0].type, 'trigger');
+    assert.equal(hum.channels[0].pattern[1].type, 'sustain');
+    assert.equal(hum.channels[0].pattern[3].type, 'sustain');
+  });
+
+  it('error: *0 hold count', () => {
+    const hum = parse('lead sin c4*0');
+    assert.ok(hum.errors.some(e => /hold count/.test(e.message)));
+  });
+
+  it('error: accent + ghost on same token', () => {
+    const hum = parse('lead sin c4!?');
+    assert.ok(hum.errors.some(e => /accent and ghost/.test(e.message)));
+  });
+
+  it('error: duplicate accent', () => {
+    const hum = parse('lead sin c4!!');
+    assert.ok(hum.errors.some(e => /duplicate accent/.test(e.message)));
+  });
+
+  it('error: duplicate hold', () => {
+    const hum = parse('lead sin c4*4*4');
+    assert.ok(hum.errors.some(e => /duplicate hold/.test(e.message)));
+  });
+
+  it('*1 is a no-op alias for bare note', () => {
+    const a = parse('lead sin c4').channels[0].pattern;
+    const b = parse('lead sin c4*1').channels[0].pattern;
+    assert.equal(b.length, 1);
+    assert.equal(b[0].hold, 1);
+    assert.equal(b[0].vel, a[0].vel);
+  });
+});
+
 // ── Parser: Effects ─────────────────────────────────────────────────
 
 describe('parser: effects', () => {

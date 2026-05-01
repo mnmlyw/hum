@@ -64,3 +64,43 @@ test('pattern-token data-s indices are contiguous per channel', async ({ page })
     els.map(e => Number(e.dataset.s)).sort((a, b) => a - b));
   expect(indices).toEqual([0, 1, 2, 3]);
 });
+
+test('held note (c4*4) keeps .playing across all 4 step durations', async ({ page }) => {
+  // The .pt span carries data-h=4 and updateHighlight maps slots 0-3 to
+  // the same DOM span — so the .playing class stays lit while sustaining.
+  await applyEdit(page, 'bpm 240\npluck sin c4*4 e4');
+  await startPlayback(page);
+
+  // Confirm the data-h attribute is set on the held token.
+  const heldHold = await page.$eval(
+    '.pt[data-ch="0"][data-s="0"]',
+    el => el.dataset.h
+  );
+  expect(heldHold).toBe('4');
+
+  // Watch .playing on the held span across multiple frames; it should stay
+  // lit for the full 4-step hold (no gap between sustains).
+  const frames = [];
+  for (let i = 0; i < 8; i++) {
+    frames.push(await page.$eval(
+      '.pt[data-ch="0"][data-s="0"]',
+      el => el.classList.contains('playing')
+    ));
+    await page.waitForTimeout(40);
+  }
+  // At least 3 consecutive frames should show .playing on the held note —
+  // proving the class isn't briefly dropping at sustain boundaries.
+  let maxRun = 0, run = 0;
+  for (const lit of frames) {
+    if (lit) { run++; maxRun = Math.max(maxRun, run); } else { run = 0; }
+  }
+  expect(maxRun).toBeGreaterThanOrEqual(3);
+});
+
+test('modifier characters get the .md class', async ({ page }) => {
+  await applyEdit(page, 'bpm 120\nlead sin c4*4 c4! c4?');
+  const mds = await page.$$eval('.md', els => els.map(e => e.textContent));
+  expect(mds).toContain('*4');
+  expect(mds).toContain('!');
+  expect(mds).toContain('?');
+});

@@ -46,7 +46,21 @@ A hum is a sequence of lines. Each line is one of:
 - **rest** — `.` (also `_`)
 - **bar line** — `|` (cosmetic, ignored by parser; e.g. `c4 | e4`)
 
-Each token is one step. A step is an 8th note. 8 steps = 1 bar of 4/4.
+Each token is one step (unless held). A step is an 8th note. 8 steps = 1 bar of 4/4.
+
+#### Per-step modifiers
+
+Any base token may be followed by one or more modifier characters:
+
+- **hold** — `*N` (N ≥ 1) — sustain the envelope for N step slots without retriggering. `c4*4 e4` is a 5-step pattern: c4 held across steps 0–3, e4 at step 4. Total pattern length = sum of every token's slot count.
+- **accent** — `!` — trigger this step at vel 1.5 (master compressor absorbs the headroom).
+- **ghost** — `?` — trigger this step at vel 0.4 (audibly quieter, not silent).
+
+Modifiers may stack in any postfix order: `c4!*4` and `c4*4!` are equivalent (accented note held for 4 steps). Constraints: a single token may carry at most one of each modifier kind, and accent + ghost together is an error. `*0` is rejected. `*1` is allowed but redundant.
+
+Modifiers on rests are accepted; only `*N` is meaningful (`.*4` = four rests). Modifiers on `x` triggers work the same as on notes (`x*4` = sustained noise hit).
+
+A bare token (`c4`) is identical to `c4!` minus the accent — i.e. `vel = 1`, `hold = 1`. Every existing `.hum` file from before phase 2 parses to identical step objects; the new fields default safely.
 
 All channels play simultaneously. Each pattern loops independently. Different lengths create polyrhythmic drift.
 

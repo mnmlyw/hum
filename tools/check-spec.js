@@ -125,6 +125,24 @@ const checks = [
       'keyboard handler must call stopPlayback on Escape');
   }],
 
+  ['Per-step modifiers: SPEC documents hold (*N), accent (!), ghost (?)', () => {
+    assert.match(spec, /Per-step modifiers/i,
+      'SPEC must have a Per-step modifiers subsection');
+    assert.match(spec, /\*N/, 'SPEC must mention `*N` hold form');
+    assert.match(spec, /accent/i, 'SPEC must mention accent');
+    assert.match(spec, /ghost/i, 'SPEC must mention ghost');
+  }],
+
+  ['Step factory has sustain (held-note filler)', () => {
+    assert.match(html, /sustain:\s*\(\)\s*=>\s*\(\{\s*type:\s*'sustain'/,
+      'Step.sustain must exist as a factory entry');
+  }],
+
+  ['Scheduler short-circuits on sustain steps', () => {
+    assert.match(html, /s\.type === 'sustain'/,
+      'scheduleStep must check for sustain steps and return early');
+  }],
+
 ];
 
 let failed = 0;

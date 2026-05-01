@@ -73,10 +73,12 @@ html, body {
 #highlight .co { color: var(--purple); }
 #highlight .fx { color: var(--blue); }
 #highlight .nu { color: var(--orange); }
+#highlight .md { color: var(--purple); opacity: 0.7; }
 #highlight .er { text-decoration: underline wavy var(--error); }
-#highlight .playing.nt,
-#highlight .playing.tr { background: var(--cyan); color: var(--bg); border-radius: 2px; }
-#highlight .playing.rs { opacity: 0.7; }
+#highlight .playing .nt,
+#highlight .playing .tr { background: var(--cyan); color: var(--bg); border-radius: 2px; }
+#highlight .playing .md { background: var(--cyan); color: var(--bg); opacity: 1; }
+#highlight .playing .rs { opacity: 0.7; }
 
 #editor {
   position: absolute;
@@ -795,6 +797,46 @@ snr noise
   . . . . . . . .  | . . . . x . x .
   : lpf 3k hpf 1k decay .04
 </script>
+<script type="text/hum" data-preset="phrase">
+bpm 92
+
+-- phrase  (per-step modifiers: hold, accent, ghost)
+-- Same notes a verse-and-answer would have, but the dynamics live
+-- inside each channel instead of being faked across multiple. Watch
+-- for `*N` (hold), `!` (accent), `?` (ghost) on the lead and bass.
+
+lead tri
+  c5*4 e5! d5 c5 .            -- A: held tonic, accented landing, decay
+  b4? a4? g4! a4 b4 c5*2 .    -- ghost lead-in, then a held second
+  c5*4 e5! d5 c5 .
+  b4? a4? g4! c5*4 .          -- close on a held tonic
+  : vol .5
+
+bass saw
+  c3*4 g2 c2! . .             -- bass holds under the lead's held tonic
+  a2? . f2? . g2!*2 . .       -- ghost steps then an accented sustain
+  c3*4 g2 c2! . .
+  a2? . f2? . c3*4            -- mirror the lead's final hold
+  : lpf 350
+
+pad sin
+  c4*8                        -- one note across the whole bar
+  a3*8
+  c4*8
+  c4*8
+  : vol .08 lpf 700
+
+kick noise
+  x . . . x! . . .            -- accented backbeat
+  x . . . x! . . .
+  x . . . x! . . .
+  x . . . x! . . x
+  : lpf 50 decay .06
+
+hat noise
+  . . x? . . . x .            -- ghost the offbeat, normal on the &
+  : hpf 8k decay .02
+</script>
 <script type="text/hum" data-preset="slow-erosion">
 bpm 52
 
@@ -955,10 +997,21 @@ for (let oct = 0; oct <= 8; oct++) {
 // place instead of forking the parser. Every step has a `type` discriminator
 // that the scheduler dispatches on; payload fields are kind-specific.
 const Step = {
-  rest: () => ({ type: 'rest' }),
-  trigger: () => ({ type: 'trigger' }),
-  note: (freq, name) => ({ type: 'note', freq, name })
+  rest:    () => ({ type: 'rest' }),
+  trigger: (vel = 1) => ({ type: 'trigger', vel }),
+  note:    (freq, name, vel = 1, hold = 1) => ({ type: 'note', freq, name, vel, hold }),
+  // Filler step that occupies one slot in a held note's range. The scheduler
+  // short-circuits on sustain — the trigger step's envelope is already
+  // scheduled for the full hold duration.
+  sustain: () => ({ type: 'sustain' })
 };
+
+// Per-step modifier velocities. Default = 1.0 (current behavior, fully
+// backward-compatible). Accent peaks above 1.0; the master compressor
+// absorbs the headroom. Ghost is audibly quieter, not silent.
+const VEL_DEFAULT = 1.0;
+const VEL_ACCENT  = 1.5;
+const VEL_GHOST   = 0.4;
 
 // Parse number with shorthand: .05 -> 0.05, 6k -> 6000
 function parseNum(s) {
@@ -1037,19 +1090,67 @@ function parse(text) {
         effectsStr = '';
       }
 
-      // Pattern: space-separated tokens, | is bar line (ignored), . is rest
+      // Pattern: space-separated tokens, | is bar line (ignored).
+      // Each token is `<base><mod>*` where base is a note/rest/trigger and
+      // mod is one of `*N` (hold), `!` (accent), `?` (ghost). Mods may stack
+      // in any order but accent+ghost is mutually exclusive and any single
+      // mod can appear at most once. A held base consumes N step slots — it
+      // emits the trigger step plus N-1 `Step.sustain()` filler entries so
+      // the scheduler can advance one slot per pattern position.
       const patTokens = patternStr.split(/\s+/).filter(t => t && t !== '|');
       const pattern = [];
+      const MOD_RE = /(\*\d+|!|\?)/g;
       for (const token of patTokens) {
-        const t = token.toLowerCase();
-        if (t === '.' || t === '_') {
+        const lc = token.toLowerCase();
+        const parts = lc.split(MOD_RE).filter(Boolean);
+        const base = parts[0];
+        const mods = parts.slice(1);
+
+        // Validate modifiers up front so we can report a single useful error.
+        let hold = 1;
+        let vel = VEL_DEFAULT;
+        let modErr = null;
+        let seenAcc = false, seenGho = false, seenHold = false;
+        for (const m of mods) {
+          if (m === '!') {
+            if (seenAcc) { modErr = `duplicate accent in '${token}'`; break; }
+            if (seenGho) { modErr = `accent and ghost on same token: '${token}'`; break; }
+            seenAcc = true; vel = VEL_ACCENT;
+          } else if (m === '?') {
+            if (seenGho) { modErr = `duplicate ghost in '${token}'`; break; }
+            if (seenAcc) { modErr = `accent and ghost on same token: '${token}'`; break; }
+            seenGho = true; vel = VEL_GHOST;
+          } else if (m.startsWith('*')) {
+            if (seenHold) { modErr = `duplicate hold in '${token}'`; break; }
+            const n = parseInt(m.slice(1), 10);
+            if (!Number.isFinite(n) || n < 1) {
+              modErr = `hold count must be ≥ 1 in '${token}'`;
+              break;
+            }
+            seenHold = true; hold = n;
+          } else {
+            modErr = `unrecognized modifier '${m}' in '${token}'`;
+            break;
+          }
+        }
+        if (modErr) {
+          result.errors.push({ line: i + 1, message: modErr });
           pattern.push(Step.rest());
-        } else if (t === 'x') {
-          pattern.push(Step.trigger());
+          continue;
+        }
+
+        // Emit the primary step + sustain fillers for any held duration.
+        if (base === '.' || base === '_') {
+          // Rests are silent so accent/ghost are no-ops; hold = N rests.
+          for (let k = 0; k < hold; k++) pattern.push(Step.rest());
+        } else if (base === 'x') {
+          pattern.push(Step.trigger(vel));
+          for (let k = 1; k < hold; k++) pattern.push(Step.sustain());
         } else {
-          const freq = NOTE_FREQ[t];
+          const freq = NOTE_FREQ[base];
           if (freq !== undefined) {
-            pattern.push(Step.note(freq, t));
+            pattern.push(Step.note(freq, base, vel, hold));
+            for (let k = 1; k < hold; k++) pattern.push(Step.sustain());
           } else {
             result.errors.push({ line: i + 1, message: `unknown note: ${token}` });
             pattern.push(Step.rest());
@@ -1268,6 +1369,10 @@ function cancelChannelEventsFrom(node, t) {
 function scheduleStep(node, step, t, dur) {
   const ch = node.channel;
   const s = ch.pattern[step % ch.pattern.length];
+  // Sustain steps are filler for held notes — the trigger step already
+  // scheduled the envelope for the full hold duration. Doing nothing here
+  // is what lets a held note ring through subsequent slots without retrigger.
+  if (s.type === 'sustain') return;
   const g = node.envelopeGain.gain;
   g.cancelScheduledValues(t);
   if (s.type === 'rest') {
@@ -1277,14 +1382,21 @@ function scheduleStep(node, step, t, dur) {
   if (s.type === 'note' && ch.waveform !== 'noise') {
     node.source.frequency.setValueAtTime(s.freq, t);
   }
-  g.setValueAtTime(1, t);
+  // Velocity scales the envelope peak. Default = 1.0 (backward-compatible),
+  // accent = 1.5 (compressor absorbs headroom), ghost = 0.4.
+  const peak = s.vel ?? 1;
+  // Held notes hold the envelope up for `hold` step durations before the
+  // end-of-step fade. Bare notes use the original 1-step duration.
+  const holdDur = (s.hold ?? 1) * dur;
+  g.setValueAtTime(peak, t);
   if (ch.effects.decay != null) {
     g.exponentialRampToValueAtTime(0.001, t + ch.effects.decay);
   } else {
-    // Hold full gain until the last 10ms of the step, then linear-ramp to 0
-    // so the next step's setValueAtTime(1) doesn't jump from a non-zero floor.
-    g.setValueAtTime(1, t + dur - 0.01);
-    g.linearRampToValueAtTime(0, t + dur);
+    // Hold full gain until the last 10ms of the held duration, then linear-ramp
+    // to 0 so the next non-sustain step's setValueAtTime doesn't jump from a
+    // non-zero floor.
+    g.setValueAtTime(peak, t + holdDur - 0.01);
+    g.linearRampToValueAtTime(0, t + holdDur);
   }
 }
 
@@ -1555,12 +1667,63 @@ function highlightTokens(code, comment, chIdx, stepCounter) {
     if (ct === '') continue;
     if (ct.match(/^\s+$/)) { out += esc(ct); continue; }
     const low = ct.toLowerCase();
+    if (low === '|' || low === ',') { out += span('bl', ct); continue; }
+
+    // Decompose into base + modifiers (mirrors the parser).
+    const parts = low.split(/(\*\d+|!|\?)/).filter(Boolean);
+    const base = parts[0];
+    const modParts = parts.slice(1);
+
+    // Pick the base color class.
+    let baseCls;
+    if (base === '.' || base === '_') baseCls = 'rs';
+    else if (base === 'x') baseCls = 'tr';
+    else if (NOTE_FREQ[base] !== undefined) baseCls = 'nt';
+    else baseCls = 'er';
+
+    // Validate modifiers exactly the way the parser does so the playhead
+    // step counter mirrors the parsed AST. Invalid modifier set → mods get
+    // the .er underline AND the token consumes a single slot (matching the
+    // parser's error fallback of pushing one rest).
+    let displayHold = 1, seenAcc = false, seenGho = false, seenHold = false;
+    let modsValid = true;
+    for (const m of modParts) {
+      if (m === '!') {
+        if (seenAcc || seenGho) { modsValid = false; break; }
+        seenAcc = true;
+      } else if (m === '?') {
+        if (seenAcc || seenGho) { modsValid = false; break; }
+        seenGho = true;
+      } else if (m.startsWith('*')) {
+        if (seenHold) { modsValid = false; break; }
+        const n = parseInt(m.slice(1), 10);
+        if (!Number.isFinite(n) || n < 1) { modsValid = false; break; }
+        seenHold = true; displayHold = n;
+      } else {
+        modsValid = false; break;
+      }
+    }
+
+    // Slice original-cased token so notes preserve user's casing.
+    const baseText = ct.slice(0, base.length);
+    const modsText = ct.slice(base.length);
+
+    let inner = `<span class="${baseCls}">${esc(baseText)}</span>`;
+    if (modsText) {
+      inner += `<span class="${modsValid ? 'md' : 'er'}">${esc(modsText)}</span>`;
+    }
+
+    // Wrap as .pt for playhead targeting. data-h communicates the hold span
+    // so updateHighlight can map every consumed slot back to this DOM span.
     const s = (stepCounter && ch !== null) ? stepCounter.n : null;
-    if (low === '.' || low === '_') { out += ptSpan('rs', ct, ch, s); if (stepCounter) stepCounter.n++; }
-    else if (low === 'x') { out += ptSpan('tr', ct, ch, s); if (stepCounter) stepCounter.n++; }
-    else if (low === '|' || low === ',') out += span('bl', ct);
-    else if (NOTE_FREQ[low] !== undefined) { out += ptSpan('nt', ct, ch, s); if (stepCounter) stepCounter.n++; }
-    else { out += ptSpan('er', ct, ch, s); if (stepCounter) stepCounter.n++; }
+    const slotCount = (modsValid && baseCls !== 'er') ? displayHold : 1;
+    if (ch !== null && s !== null) {
+      const h = slotCount > 1 ? ` data-h="${slotCount}"` : '';
+      out += `<span class="pt" data-ch="${ch}" data-s="${s}"${h}>${inner}</span>`;
+    } else {
+      out += inner;
+    }
+    if (stepCounter) stepCounter.n += slotCount;
   }
 
   if (fxPart) {
@@ -1697,7 +1860,13 @@ function updateHighlight() {
   highlight.innerHTML = newHtml;
   stepSpanMap = {};
   for (const el of highlight.querySelectorAll('.pt')) {
-    stepSpanMap[el.dataset.ch + '-' + el.dataset.s] = el;
+    const start = parseInt(el.dataset.s, 10);
+    const hold = parseInt(el.dataset.h || '1', 10);
+    // Held notes: every slot the hold consumes points back to the same
+    // DOM span so the playhead .playing class stays lit while sustaining.
+    for (let k = 0; k < hold; k++) {
+      stepSpanMap[el.dataset.ch + '-' + (start + k)] = el;
+    }
   }
 }
 
