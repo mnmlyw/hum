@@ -598,12 +598,47 @@ describe('parser: real hum files', () => {
     assert.equal(hum.channels[0].waveform, 'tri');
   });
 
+  it('parses neon-drift.hum', () => {
+    const text = readFileSync(new URL('../demos/neon-drift.hum', import.meta.url), 'utf8');
+    const hum = parse(text);
+    assert.equal(hum.bpm, 138);
+    assert.equal(hum.channels.length, 8);
+    assert.equal(hum.errors.length, 0);
+  });
+
+  it('parses tidal-memory.hum', () => {
+    const text = readFileSync(new URL('../demos/tidal-memory.hum', import.meta.url), 'utf8');
+    const hum = parse(text);
+    assert.equal(hum.bpm, 64);
+    assert.equal(hum.channels.length, 7);
+    assert.equal(hum.errors.length, 0);
+  });
+
   it('parses slow-erosion.hum', () => {
     const text = readFileSync(new URL('../demos/slow-erosion.hum', import.meta.url), 'utf8');
     const hum = parse(text);
     assert.equal(hum.bpm, 52);
     assert.equal(hum.channels.length, 8);
     assert.equal(hum.errors.length, 0);
+  });
+
+  it('parses phosphene.hum', () => {
+    const text = readFileSync(new URL('../demos/phosphene.hum', import.meta.url), 'utf8');
+    const hum = parse(text);
+    assert.equal(hum.bpm, 88);
+    assert.equal(hum.channels.length, 8);
+    assert.equal(hum.errors.length, 0);
+  });
+
+  it('parses micro-cell.hum (polyrhythm showcase)', () => {
+    const text = readFileSync(new URL('../demos/micro-cell.hum', import.meta.url), 'utf8');
+    const hum = parse(text);
+    assert.equal(hum.bpm, 100);
+    assert.equal(hum.channels.length, 5);
+    assert.equal(hum.errors.length, 0);
+    // Coprime channel lengths produce the polyrhythm: 7, 11, 5, 13, 8.
+    const lens = hum.channels.map((c) => c.pattern.length).sort((a, b) => a - b);
+    assert.deepEqual(lens, [5, 7, 8, 11, 13]);
   });
 
   it('parses flux.hum (fast feature platter)', () => {
@@ -777,14 +812,17 @@ describe('scheduler: channel sync', () => {
     }
   });
 
-  it('glass.hum channel lengths divide evenly into the longest', () => {
-    const text = readFileSync(new URL('../demos/glass.hum', import.meta.url), 'utf8');
-    const hum = parse(text);
-    const lengths = hum.channels.map(c => c.pattern.length);
-    const maxLen = Math.max(...lengths);
-    for (let i = 0; i < lengths.length; i++) {
-      assert.ok(maxLen % lengths[i] === 0,
-        `glass.hum: ${hum.channels[i].name} has ${lengths[i]} steps, doesn't divide evenly into ${maxLen}`);
+  it('all demo hums have matching channel lengths', () => {
+    const files = ['glass.hum', 'neon-drift.hum', 'phosphene.hum', 'dust-and-iron.hum'];
+    for (const file of files) {
+      const text = readFileSync(new URL('../demos/' + file, import.meta.url), 'utf8');
+      const hum = parse(text);
+      const lengths = hum.channels.map(c => c.pattern.length);
+      const maxLen = Math.max(...lengths);
+      for (let i = 0; i < lengths.length; i++) {
+        assert.ok(maxLen % lengths[i] === 0,
+          `${file}: ${hum.channels[i].name} has ${lengths[i]} steps, doesn't divide evenly into ${maxLen}`);
+      }
     }
   });
 });
