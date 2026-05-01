@@ -16,7 +16,14 @@ kick noise x . . x . . x . : lpf 55 decay .05
 
 ## Run it
 
-Open `index.html` in any modern browser. No build step. No dependencies.
+Open `index.html` in any modern browser, or visit
+**https://mnmlyw.github.io/hum/**. No build step. No dependencies.
+
+## Learn it
+
+[TUTORIAL.md](TUTORIAL.md) walks through every feature in 5 minutes —
+one note → melody → drums → polyrhythm. [SPEC.md](SPEC.md) is the full
+reference if you'd rather read the grammar.
 
 ## Repo layout
 
