@@ -75,10 +75,15 @@ html, body {
 #highlight .nu { color: var(--orange); }
 #highlight .md { color: var(--purple); opacity: 0.7; }
 #highlight .er { text-decoration: underline wavy var(--error); }
-#highlight .playing .nt,
-#highlight .playing .tr { background: var(--cyan); color: var(--bg); border-radius: 2px; }
-#highlight .playing .md { background: var(--cyan); color: var(--bg); opacity: 1; }
-#highlight .playing .rs { opacity: 0.7; }
+/* Highlight the whole .pt wrapper so a token like `f2*8` renders as one
+   continuous cyan box instead of one box per inner span. The :has() rule
+   suppresses the background on rests (no inverse-video for silence). */
+#highlight .pt.playing { background: var(--cyan); border-radius: 2px; }
+#highlight .pt.playing .nt,
+#highlight .pt.playing .tr,
+#highlight .pt.playing .md { color: var(--bg); opacity: 1; }
+#highlight .pt.playing:has(.rs) { background: none; }
+#highlight .pt.playing .rs { opacity: 0.7; }
 
 #editor {
   position: absolute;
