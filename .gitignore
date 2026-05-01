@@ -1,7 +1,9 @@
 *.hum
-# Demo fixtures live in demos/ and are tracked. User-saved hums in the
-# project root (or anywhere else) stay ignored.
+# Demo fixtures (in demos/) and the recording-specific compact demo
+# (in recording/) are tracked. Other .hum files (user-saved songs in
+# the project root, etc.) stay ignored.
 !demos/*.hum
+!recording/*.hum
 node_modules/
 test-results/
 playwright-report/

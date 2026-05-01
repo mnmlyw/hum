@@ -1,0 +1,17 @@
+bpm 120
+
+-- showcase  (compact demo for screen recording — fits 1920x1080 @ 100% zoom)
+-- Six channels, one line each. Exercises every modifier:
+--   hold (*N) on lead and pad
+--   accent (!) on lead apex and kick downbeat
+--   ghost (?) on arp tail and hat off-of-the-off
+-- Lead is 9 steps; everyone else is 8 (or 32 for pad). The 9-vs-8
+-- drift on lead means each loop falls one step out of phase with kick,
+-- so the texture evolves over ~16 seconds without ever quite repeating.
+
+lead sin   c4*4 e4 g4 c5 e5! d5
+bass saw   c2 . . c3 . g2 . .
+pad  sin   c4*8 g3*8 a3*8 c4*8
+arp  tri   c4 e4 g4 c5 e5? c5? g4 e4
+kick noise x! . . . x . . .
+hat  noise . . x? . . . x .
