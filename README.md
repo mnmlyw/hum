@@ -30,7 +30,6 @@ reference if you'd rather read the grammar.
 ```
 index.html        the app — DSL parser, audio engine, scheduler, editor, all of it
 SPEC.md           the language and runtime contract (this is the source of truth)
-CHANGELOG.md      reverse-chronological release notes
 demos/            shipped .hum files; load via the load button or drag-drop
 tests/
 ├── parser.test.js     Node test suite (parser + scheduler math, ~90 ms)
