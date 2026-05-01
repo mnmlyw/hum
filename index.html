@@ -911,6 +911,47 @@ air noise                              -- 15 steps
   . . . . . . . . x . . . . . .
   : vol .03 hpf 3k decay .08
 </script>
+<script type="text/hum" data-preset="tidepool">
+bpm 72
+
+-- tidepool  (held chords + soft dynamics)
+-- before phase 2 the pad below would have been 32 lines of `a3 a3 a3 ...`;
+-- now each chord is one token. ghost on the lead's pickups makes them
+-- breathe; accent on the kick's downbeat plants the pulse.
+
+pad sin
+  a3*8 f3*8 c4*8 g3*8           -- Am  F  C  G — one held tone per bar
+  : vol .14 lpf 700
+
+low tri
+  a2*8 f2*8 c3*8 g2*8           -- octave below the pad
+  : vol .1 lpf 500
+
+bass saw
+  a1*4 . a2 . .                 -- root held half a bar, then a fill
+  f1*4 . f2 . .
+  c2*4 . c3 . .
+  g1*4 . g2 . .
+  : lpf 240
+
+lead tri
+  . . a4 c5 e5 . d5 c5
+  . a4? c5? d5? e5! d5 c5 b4    -- ghost climb into an accented apex
+  . . c5 e5 g5 . f5 e5
+  . c5? e5? f5? g5! f5 e5 d5
+  : vol .35
+
+kick noise
+  x! . . . x . . .              -- accent the downbeat so the held pad sits over it
+  x! . . . x . . .
+  x! . . . x . . .
+  x! . . . x . . x!
+  : lpf 55 decay .07
+
+hat noise
+  . x? . x . x? . x             -- ghost the offbeats; the ands stay normal
+  : hpf 8k decay .02
+</script>
 <!-- PRESETS:END -->
 <div id="app">
   <div id="editor-wrap">
