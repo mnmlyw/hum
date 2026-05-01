@@ -127,7 +127,8 @@ effect changes take effect on the next scheduler tick; structural changes
 (adding, removing, or swapping waveform on a channel) are quantized to the
 next step boundary.
 
-- **play / stop** — button. Cmd/Ctrl+Enter starts playback when stopped.
+- **play / stop** — button. Cmd/Ctrl+Enter starts playback when stopped;
+  Esc stops/pauses while playing (no-op when stopped).
 - **force-apply** — Cmd/Ctrl+Enter *while playing* cancels the pending
   debounce and applies the latest edit immediately.
 - **load** — opens file picker for `.hum` files.

@@ -11,6 +11,20 @@ test('Control+Enter starts playback when stopped', async ({ page }) => {
   expect(await page.locator('#play-btn').textContent()).toBe('stop');
 });
 
+test('Escape stops playback (no-op when already stopped)', async ({ page }) => {
+  await applyEdit(page, 'bpm 120\nlead sin c4 e4');
+  // Esc while stopped: nothing happens.
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => window.__hum.isPlaying)).toBe(false);
+
+  await page.click('#play-btn');
+  await page.waitForFunction(() => window.__hum.isPlaying);
+
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !window.__hum.isPlaying);
+  expect(await page.locator('#play-btn').textContent()).toBe('play');
+});
+
 test('Control+Enter while playing force-applies pending edits without stopping', async ({ page }) => {
   // Live edits land via a 300ms debounce. Power users who want changes to
   // take effect immediately can press Cmd+Enter while playing — it cancels

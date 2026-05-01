@@ -4,6 +4,21 @@ All notable changes to hum. Newest first.
 
 ## Unreleased
 
+### Behavior
+- **Esc stops/pauses playback.** Closes the keyboard control loop —
+  Cmd/Ctrl+Enter starts (or force-applies while playing), Esc stops.
+  No-op when already stopped, so the editor's escape-the-modal reflex
+  stays safe.
+
+### UI fix (round 2)
+- Preset picker focus ring sometimes persisted even after the previous
+  blur+refocus fix — Chrome occasionally re-acquired focus on the
+  `<select>` after the change event resolved. Now the blur runs both
+  synchronously and on the next animation frame, and the CSS strips
+  both `:focus` and `:focus-visible` outlines as a backstop. The
+  picker is a pop-and-go affordance; a sticky focus indicator on it
+  has no meaning.
+
 ### Demos
 - `demos/micro-cell.hum` — polyrhythm showcase. Five channels with
   coprime lengths (5, 7, 8, 11, 13); the texture never quite repeats.

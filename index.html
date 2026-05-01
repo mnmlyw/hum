@@ -183,8 +183,12 @@ html, body {
   -webkit-appearance: none;
 }
 #preset-picker:hover { color: var(--fg); }
-#preset-picker:focus { outline: none; }
-#preset-picker:focus-visible { outline: 1px solid var(--fg2); outline-offset: 2px; }
+/* The picker's focus ring would persist after selection in some browsers
+   (Chrome retains focus on the <select> across change events even after a
+   blur(). The picker is a pop-and-go affordance so a sticky focus
+   indicator on it has no meaning — drop both rings. */
+#preset-picker:focus,
+#preset-picker:focus-visible { outline: none; box-shadow: none; }
 #preset-picker option { background: var(--bg); color: var(--fg); }
 #play-btn.playing { color: var(--cyan); }
 
@@ -2125,11 +2129,13 @@ presetPicker.addEventListener('change', () => {
     onInput();
   }
   presetPicker.value = '';
-  // Drop the persistent focus ring — the user's next action is in the
-  // editor, not the dropdown. blur() also clears the :focus styling that
-  // browsers leave on after a change.
-  presetPicker.blur();
-  editor.focus();
+  // Drop the persistent focus ring. Chrome sometimes re-acquires focus on
+  // the <select> after the change event resolves, so we blur both
+  // synchronously (fast path) and on the next frame (catches the re-focus
+  // race). The CSS rule also strips the focus outline as a backstop.
+  const release = () => { presetPicker.blur(); editor.focus(); };
+  release();
+  requestAnimationFrame(release);
 });
 
 // Drag and drop
@@ -2156,6 +2162,12 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();
     saveFile();
+  }
+  // Esc pauses/stops playback. No-op when already stopped, so it stays
+  // safe to press the editor's escape-this-modal reflex.
+  if (e.key === 'Escape' && isPlaying) {
+    e.preventDefault();
+    stopPlayback();
   }
 });
 

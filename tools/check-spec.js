@@ -118,6 +118,13 @@ const checks = [
       'Cmd+Enter playing branch does not call onInput()');
   }],
 
+  ['Esc stops playback (and SPEC documents it)', () => {
+    assert.match(spec, /Esc stops\/pauses while playing/i,
+      'SPEC must document the Esc shortcut');
+    assert.match(html, /key === 'Escape'[\s\S]{0,200}?stopPlayback\(\)/,
+      'keyboard handler must call stopPlayback on Escape');
+  }],
+
 ];
 
 let failed = 0;
