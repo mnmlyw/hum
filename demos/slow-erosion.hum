@@ -1,39 +1,42 @@
 bpm 52
 
--- slow erosion
+-- slow erosion  (sparse polyrhythm, prime-length drones)
+-- Each channel uses *N to express its drone as one held token instead
+-- of repeated notes; the channel lengths stay coprime so no two voices
+-- ever quite align. Sparse triggers carry accent/ghost dynamics.
+
 earth sin                                    -- 7 steps
-  a1 a1 a1 a1 a1 g1 g1
+  a1*5 g1*2
   : vol .14 lpf 120
 
 tide sin                                     -- 11 steps
-  e2 e2 e2 e2 e2 e2 d2 d2 d2 d2 d2
+  e2*6 d2*5
   : vol .1 lpf 300
 
 moss tri                                     -- 9 steps
-  a2 a2 a2 c3 c3 c3 e3 e3 e3
+  a2*3 c3*3 e3*3
   : vol .07 lpf 600
 
 fog sin                                      -- 16 steps
-  e3 e3 e3 e3 e3 e3 e3 e3
-  g3 g3 g3 g3 g3 g3 g3 g3
+  e3*8 g3*8
   : vol .06 lpf 700
 
 haze tri                                     -- 19 steps
-  . . . . a3 . . . . .
+  . . . . a3? . . . . .
   . . . . . e3 . . .
   : vol .15
 
 stone sin                                    -- 17 steps
-  . . . . . . . b4 .
+  . . . . . . . b4! .                        -- a single accented bell tone
   . . . . . . . .
   : vol .12
 
 rain noise                                   -- 23 steps
   . . . . . . . . . . .
-  x . . . . . . . . . . .
+  x? . . . . . . . . . . .                   -- a barely-there hiss
   : vol .02 hpf 4k decay .06
 
 breath noise                                 -- 29 steps
   . . . . . . . . . . . . . . .
-  . . . . . . x . . . . . . .
+  . . . . . . x? . . . . . . .              -- ghost breath
   : vol .015 hpf 1k lpf 3k decay .2

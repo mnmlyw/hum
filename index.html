@@ -311,646 +311,205 @@ html, body {
 </head>
 <body>
 <!-- PRESETS:START -->
-<script type="text/hum" data-preset="dust-and-iron">
-bpm 108
-
--- dust and iron
-whistle tri
-  . . . . e5 . d5 .  | b4 . . . . . . .
-  . . . . e5 . g5 .  | f#5 . . . e5 . d5 .
-  . . . . b4 . d5 .  | e5 . . . . . . .
-  . . d5 . b4 . a4 .  | b4 . . . . . . .
-  : vol .5
-
-twang sqr
-  . . . . b3 . a3 .  | g3 . . . . . . .
-  . . . . b3 . d4 .  | d4 . . . b3 . a3 .
-  . . . . g3 . a3 .  | b3 . . . . . . .
-  . . a3 . g3 . f#3 .  | g3 . . . . . . .
-  : vol .15
-
-bass saw
-  e2 . . . e2 . e3 .  | e2 . . . e2 . . .   -- Em
-  e2 . . . e2 . e3 .  | e2 . . . e2 . . .
-  g2 . . . g2 . g3 .  | g2 . . . g2 . . .   -- G
-  b1 . . . d2 . e2 .  | e2 . . . . . . .   -- B→Em
-  : lpf 250
-
-gallop sin
-  e3 . e4 . e3 . e4 .  -- Em
-  e3 . e4 . e3 . e4 .
-  g3 . b3 . g3 . b3 .  -- G
-  b2 . d3 . b2 . e3 .  -- B→Em
-  : vol .08 lpf 800
-
-drone sin
-  b2 b2 b2 b2 b2 b2 b2 b2     -- Em (5th)
-  b2 b2 b2 b2 b2 b2 b2 b2
-  d3 d3 d3 d3 d3 d3 d3 d3     -- G (5th)
-  b2 b2 d3 d3 b2 b2 a2 a2     -- B→Em turnaround (matches bass)
-  : vol .06 lpf 400
-
-kick noise
-  x . . . . . x .  | . . x . . . . .
-  x . . . . . x .  | . . x . . . . .
-  x . . . . . x .  | . . x . . . . .
-  x . . x . . x .  | x . x . . . . .
-  : lpf 50 decay .06
-
-snr noise
-  . . . . x . . .  | . . . . . . x .
-  . . . . x . . .  | . . . . . . x .
-  . . . . x . . .  | . . . . . . x .
-  . . . . x . . x  | . . . . x . x .
-  : lpf 3k hpf 800 decay .04
-
-dust noise
-  . x . . . x . .  | . . . x . . . x
-  : vol .03 hpf 6k decay .015
-</script>
 <script type="text/hum" data-preset="flux">
 bpm 200
 
--- flux  (fast feature platter — every waveform, every effect)
--- 200 bpm with 8th-note steps = 16th-note feel. All five waveforms,
--- all four effects, sharps + flats, triggers on pitched channels,
--- a 16-bar arrangement with build / drop / return.
+-- flux  (fast feature platter — every waveform, every modifier)
+-- 200 bpm with 8th-note steps gives a 16th-note feel. Eight channels,
+-- all five waveforms (sin/tri/sqr/saw/noise), all four effects, and
+-- every per-step modifier (hold, accent, ghost) used at least once.
 
 lead sin
-  e5 . g5 . a5 . b5 . | c6 . b5 . a5 . g5 .   -- A: lead enters
-  e5 . g5 . a5 . c6 . | d6 . c6 . a5 . g5 .
-  e5 . g5 . a5 . b5 . | c6 . b5 . a5 . g5 .
-  e5 . g5 . a5 . c6 . | d6 . . . . . . .
+  e5 . g5 . a5 . b5! . | c6! . b5 . a5 . g5 .   -- accent the apex
+  e5 . g5 . a5 . c6! . | d6! . c6 . a5 . g5 .
+  e5 . g5 . a5 . b5! . | c6! . b5 . a5 . g5 .
+  e5 . g5 . a5 . c6! . | d6*8                   -- climactic held tonic
   : vol .35 hpf 200
 
 stab sqr
-  . . . . a4 . . . | . . . . a4 . . .   -- A: rhythmic stab
-  . . . . a4 . . . | . . . . a4 . . a4
-  . . . . a4 . . . | . . . . a4 . . .
-  . . . . a4 . . . | . . . . a4 a4 a4 a4
+  . . . . a4! . . . | . . . . a4 . . .          -- accent backbeat stabs
+  . . . . a4! . . . | . . . . a4 . . a4?        -- ghost pickup into bar
+  . . . . a4! . . . | . . . . a4 . . .
+  . . . . a4! . . . | . . . . a4! a4 a4 a4!     -- fill ramps up
   : vol .12 lpf 3k
 
 bass saw
-  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
-  f2 . . f2 . . f3 . | e2 . . e2 . . e3 .
-  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
-  f2 . . f2 . . f3 . | e2 . . e2 e2 e2 e2
+  a2! . . a2 . . a3 . | g2! . . g2 . . g3 .
+  f2! . . f2 . . f3 . | e2! . . e2 . . e3 .
+  a2! . . a2 . . a3 . | g2! . . g2 . . g3 .
+  f2! . . f2 . . f3 . | e2*8                    -- bass holds the resolution
   : lpf 320
 
 trill tri
-  . . a4 b4 c5 . b4 a4 | g4 . a4 . b4 . . .
-  . . a4 b4 c5 . d5 . | e5 . d5 . c5 . b4 .
-  . . a4 b4 c5 . b4 a4 | g4 . a4 . b4 . . .
+  . . a4? b4? c5 . b4 a4 | g4 . a4 . b4 . . .   -- ghost lead-in
+  . . a4? b4? c5 . d5 . | e5 . d5 . c5 . b4 .
+  . . a4? b4? c5 . b4 a4 | g4 . a4 . b4 . . .
   . . . . . . . . | . . . . . . . .
   : vol .15 lpf 4k
 
 pluck sin
-  a3 . e4 . a3 . e4 . | a3 . e4 . a3 . e4 .
-  g3 . d4 . g3 . d4 . | g3 . d4 . g3 . d4 .
-  f3 . c4 . f3 . c4 . | f3 . c4 . f3 . c4 .
-  e3 . b3 . e3 . b3 . | e3 . b3 . e3 . b3 .
+  a3*4         e4 . a3 . | a3*4         e4 . a3 .   -- held bass tone w/ pluck
+  g3*4         d4 . g3 . | g3*4         d4 . g3 .
+  f3*4         c4 . f3 . | f3*4         c4 . f3 .
+  e3*4         b3 . e3 . | e3*4         b3 . e3 .
   : vol .14 decay .08
 
--- triggered envelope on pitched channels — the source plays at its
--- last frequency for each `x`, useful for percussive accents.
 acc sqr
-  . . . . . . . x | . . . . . . . x
-  . . . . . . . x | . . . . . . . x
-  . . . . . . . x | . . . . . . . x
-  . . . . . . . x | . . . . . . . .
+  . . . . . . . x! | . . . . . . . x!           -- accented triggers on the &
+  . . . . . . . x! | . . . . . . . x!
+  . . . . . . . x! | . . . . . . . x!
+  . . . . . . . x! | . . . . . . . .
   : vol .08 hpf 2k decay .03
 
 kick noise
-  x . . . x . . . | x . . . x . . .
-  x . . . x . . . | x . . . x . . x
-  x . . . x . . . | x . . . x . . .
-  x . . . x . . . | x . x . x x x x
+  x! . . . x . . . | x! . . . x . . .           -- accent every downbeat
+  x! . . . x . . . | x! . . . x . . x?          -- ghost pickup
+  x! . . . x . . . | x! . . . x . . .
+  x! . . . x . . . | x! . x! x! x! x! x! x!     -- fill
   : lpf 60 decay .05
 
 hat noise
-  . x . x . x . x | . x . x . x . x
-  . x . x . x . x | . x . x . x x x
-  . x . x . x . x | . x . x . x . x
-  . x . x . x . x | x x x x x x x x
+  . x? . x . x? . x | . x? . x . x? . x         -- ghost the &s
+  . x? . x . x? . x | . x? . x . x? x x
+  . x? . x . x? . x | . x? . x . x? . x
+  . x? . x . x? . x | x x x x x x x x           -- fill
   : hpf 9k decay .015
 </script>
 <script type="text/hum" data-preset="glass">
 bpm 96
 
--- glass
+-- glass  (melodic song with held pad + dynamic accents)
+-- The pad used to be 24 lines of `d3 d3 d3 d3 ...` to fake a sustain.
+-- Now each chord is one held token. Lead gains accents on the apex
+-- notes and a held tonic to close.
+
 lead tri
   . . f#4 . a4 . c#5 . | d5 . . . c#5 . a4 .   -- A: verse
-  . . d4 . f#4 . a4 .  | b4 . . . a4 . . .
+  . . d4 . f#4 . a4 .  | b4 . . . a4? . . .    -- ghost the hand-off
   . . b4 . d5 . f#5 .  | e5 . . . d5 . b4 .
   . . c#5 . e5 . . .   | d5 . c#5 . a4 . . .
-  . . f#4 . a4 . d5 .  | e5 . . . d5 . a4 .   -- A': variation
-  . . d4 . f#4 . b4 .  | c#5 . . . b4 . . .
-  . . f#4 . a4 . c#5 . | d5 . . . . . . .     -- B: open
+  . . f#4 . a4 . d5 .  | e5! . . . d5 . a4 .   -- A': accented apex
+  . . d4 . f#4 . b4 .  | c#5 . . . b4? . . .
+  . . f#4 . a4 . c#5 . | d5*8                  -- B: held tonic, full bar
   . . . . . . . .      | . . . . . . . .
-  . . a4 . d5 . f#5 .  | g5 . . . f#5 . d5 .  -- C: climax
-  . . f#5 . e5 . d5 .  | c#5 . . . a4 . . .
-  . . b4 . d5 . f#5 .  | e5 . . . d5 . b4 .   -- A: return
-  . . c#5 . e5 . . .   | d5 . . . . . . .
+  . . a4 . d5 . f#5 .  | g5! . . . f#5 . d5 .  -- C: climax with accent
+  . . f#5 . e5 . d5 .  | c#5 . . . a4? . . .
+  . . b4 . d5 . f#5 .  | e5 . . . d5 . b4 .    -- A: return
+  . . c#5 . e5 . . .   | d5*8                  -- close on a held tonic
   : vol .5
 
 arp sin
-  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4  -- Dmaj7
-  b2 d3 f#3 a3 f#3 d3 f#3 a3  | b2 d3 f#3 a3 f#3 d3 f#3 a3   -- Bm7
-  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4  -- Dmaj7
-  b2 d3 f#3 a3 f#3 d3 f#3 a3  | b2 d3 f#3 a3 f#3 d3 f#3 a3   -- Bm7
-  d4 f#4 a4 c#5 a4 f#4 a4 c#5 | d4 f#4 a4 c#5 a4 f#4 a4 c#5  -- Dmaj7 (oct up: lift)
-  c#5 a4 f#4 d4 c#4 a3 f#3 d3 | c#5 a4 f#4 d4 c#4 a3 f#3 d3  --        (cascade fall)
-  g3 b3 d4 f#4 d4 b3 d4 f#4   | g3 b3 d4 f#4 d4 b3 d4 f#4   -- Gmaj7 B
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4   -- Dmaj7
+  b2 d3 f#3 a3 f#3 d3 f#3 a3  | b2 d3 f#3 a3 f#3 d3 f#3 a3    -- Bm7
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4
+  b2 d3 f#3 a3 f#3 d3 f#3 a3  | b2 d3 f#3 a3 f#3 d3 f#3 a3
+  d4 f#4 a4 c#5 a4 f#4 a4 c#5 | d4 f#4 a4 c#5 a4 f#4 a4 c#5   -- octave lift
+  c#5 a4 f#4 d4 c#4 a3 f#3 d3 | c#5 a4 f#4 d4 c#4 a3 f#3 d3   -- cascade fall
+  g3 b3 d4 f#4 d4 b3 d4 f#4   | g3 b3 d4 f#4 d4 b3 d4 f#4    -- Gmaj7  B
   g3 b3 d4 g4 d4 b3 g3 b3     | g3 b3 d4 g4 d4 b3 g3 b3
-  e3 g#3 b3 e4 b3 g#3 b3 e4   | e3 g#3 b3 e4 b3 g#3 b3 e4   -- E  C
-  a3 c#4 e4 a4 e4 c#4 e4 a4   | a3 c#4 e4 a4 e4 c#4 e4 a4   -- A
-  g3 b3 d4 f#4 d4 b3 d4 f#4   | g3 b3 d4 f#4 d4 b3 d4 f#4   -- Gmaj7
-  a3 c#4 e4 a4 e4 c#4 a3 e3   | a3 c#4 e4 a4 e4 c#4 a3 e3   -- A (fall)
+  e3 g#3 b3 e4 b3 g#3 b3 e4   | e3 g#3 b3 e4 b3 g#3 b3 e4    -- E   C
+  a3 c#4 e4 a4 e4 c#4 e4 a4   | a3 c#4 e4 a4 e4 c#4 e4 a4    -- A
+  g3 b3 d4 f#4 d4 b3 d4 f#4   | g3 b3 d4 f#4 d4 b3 d4 f#4
+  a3 c#4 e4 a4 e4 c#4 a3 e3   | a3 c#4 e4 a4 e4 c#4 a3 e3
   : vol .12 lpf 2k
 
 pad sin
-  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
-  b2 b2 b2 b2 b2 b2 b2 b2 | b2 b2 b2 b2 b2 b2 b2 b2
-  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
-  b2 b2 b2 b2 b2 b2 b2 b2 | b2 b2 b2 b2 b2 b2 b2 b2
-  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
-  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
-  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3  -- B
-  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3
-  e3 e3 e3 e3 e3 e3 e3 e3 | e3 e3 e3 e3 e3 e3 e3 e3  -- C
-  a3 a3 a3 a3 a3 a3 a3 a3 | a3 a3 a3 a3 a3 a3 a3 a3
-  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3
-  a3 a3 a3 a3 a3 a3 a3 a3 | a3 a3 a3 a3 a3 a3 a3 a3
+  d3*16 b2*16            -- one held tone per chord — was 32 tokens each
+  d3*16 b2*16
+  d3*16 d3*16            -- A'
+  g3*16 g3*16            -- B
+  e3*16 a3*16            -- C
+  g3*16 a3*16
   : vol .08 lpf 600
 
 bass saw
-  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .  -- Dmaj7
-  b1 . . b1 . . b2 . | b1 . . b1 . . b2 .  -- Bm7
-  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .
-  b1 . . b1 . . b2 . | b1 . . b1 . . b2 .
-  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .  -- A'
-  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .
-  g2 . . g2 . . g3 . | g2 . . g2 . . g3 .  -- B
-  g2 . . . . . . .   | . . . . . . . .
-  e2 . . e2 . . e3 . | a2 . . a2 . . a3 .  -- C
-  a2 . . a2 . . a3 . | a2 . . a2 . . a3 .
-  g2 . . g2 . . g3 . | g2 . . g2 . . g3 .
-  a2 . . a2 . . a3 . | a2 . . a2 . . e2 .
+  d2 . . d2 . . d3 . | d2*8                    -- bass settles into a hold
+  b1 . . b1 . . b2 . | b1*8
+  d2 . . d2 . . d3 . | d2*8
+  b1 . . b1 . . b2 . | b1*8
+  d2 . . d2 . . d3 . | d2*8
+  d2 . . d2 . . d3 . | d2*8
+  g2 . . g2 . . g3 . | g2*8
+  g2*16
+  e2 . . e2 . . e3 . | a2*8
+  a2 . . a2 . . a3 . | a2*8
+  g2 . . g2 . . g3 . | g2*8
+  a2 . . a2 . . a3 . | a2*8
   : lpf 200
 
 kick noise
-  x . . . . . x . | . . . . x . . .  -- A
-  x . . . . . x . | . . . . x . . .
-  x . . . . . x . | . . . . x . . .
-  x . . . . . x . | . . . . x . . .
-  x . . . . . x . | . . . . x . . .  -- A'
-  x . . . . . x . | . . . . x . . .
-  x . . . . . . . | . . . . . . . .  -- B
+  x! . . . . . x . | . . . . x . . .   -- accent the downbeat
+  x! . . . . . x . | . . . . x . . .
+  x! . . . . . x . | . . . . x . . .
+  x! . . . . . x . | . . . . x . . .
+  x! . . . . . x . | . . . . x . . .   -- A'
+  x! . . . . . x . | . . . . x . . .
+  x! . . . . . . . | . . . . . . . .   -- B: pulled back
   . . . . . . . . | . . . . . . . .
-  x . . . . . x . | x . . . . . x .  -- C
-  x . . . . . x . | . . x . . . x .
-  x . . . . . x . | . . . . x . . .
-  x . . . . . x . | . . . . . . . .
+  x! . . . . . x . | x! . . . . . x .  -- C: build
+  x! . . . . . x . | . . x . . . x .
+  x! . . . . . x . | . . . . x . . .
+  x! . . . . . x . | . . . . . . . .
   : lpf 50 decay .06
 
 hat noise
-  . . x . . . x . | . . x . . . x .  -- A
-  . . x . . . x . | . . x . . . x .
-  . . x . . . x . | . . x . . . x .
-  . . x . . . x . | . . x . . x x .
-  . . x . . . x . | . . x . . . x .  -- A'
-  . . x . . x x . | . . x . . . x .
-  . . x . . . . . | . . . . . . . .  -- B
+  . . x? . . . x . | . . x? . . . x .  -- ghost the off-of-the-off
+  . . x? . . . x . | . . x? . . . x .
+  . . x? . . . x . | . . x? . . . x .
+  . . x? . . . x . | . . x? . . x x .
+  . . x? . . . x . | . . x? . . . x .
+  . . x? . . x x . | . . x? . . . x .
+  . . x . . . . . | . . . . . . . .
   . . . . . . . . | . . . . . . . .
-  . . x . . x . . | . . x . . x . .  -- C
-  . . x . . x . . | . x x . . . x .
-  . . x . . . x . | . . x . . . x .
-  . . x . . . x . | . . . . . . . .
+  . . x? . . x . . | . . x? . . x . .
+  . . x? . . x . . | . x x . . . x .
+  . . x? . . . x . | . . x? . . . x .
+  . . x? . . . x . | . . . . . . . .
   : hpf 8k decay .03
-</script>
-<script type="text/hum" data-preset="micro-cell">
-bpm 100
-
--- micro-cell  (polyrhythm showcase: prime-length channels)
--- Each channel has a coprime length so the loop point is the LCM of
--- all of them. Watch the playhead — every channel scrolls at its own
--- rate and the texture never quite repeats.
-
--- 7 steps: pulse against an 8-step kick → drifts +1 step per loop
-pulse sin
-  c4 . . e4 . g4 .
-  : vol .14 lpf 2k
-
--- 11 steps: counter-melody using underscore rests for variety
-counter tri
-  e4 _ . a4 _ . c5 _ . _ e4
-  : vol .08
-
--- 5 steps: triggered hat at a different cycle
-tick noise
-  . x . _ x
-  : hpf 8k decay .02
-
--- 13 steps: bass slowly cycles
-bass saw
-  c2 . . . g1 . c3 . . . . g1 .
-  : lpf 240
-
--- 8 steps: the only "metric" pattern, anchors the rhythm
-kick noise
-  x . . . x . . .
-  : lpf 55 decay .05
-</script>
-<script type="text/hum" data-preset="neon-drift">
-bpm 138
-
--- neon drift
-lead tri
-  . . e4 g4 a4 . g4 e4 | d4 . . . e4 . . .     -- A: verse
-  . . c4 d4 e4 . g4 a4 | b4 . a4 . g4 . . .
-  . . e4 g4 a4 . c5 b4 | a4 . g4 . e4 . d4 .
-  c4 . d4 . e4 . . .   | . . . . . . . .
-  . . e4 g4 a4 . g4 e4 | d4 . . . e4 . . .     -- A: repeat
-  . . c4 d4 e4 . g4 a4 | b4 . a4 . g4 . . .
-  . . e4 g4 a4 . c5 b4 | a4 . g4 . e4 . d4 .
-  c4 . d4 . e4 . . .   | . . . . . . . .
-  . . a4 . c5 . d5 .   | e5 . . . d5 . c5 .     -- B: lift
-  . . c5 d5 e5 . g5 .  | a5 . . . g5 . e5 .
-  . . d5 . c5 . a4 .   | g4 . . . a4 . . .
-  . . g4 a4 b4 . a4 .  | g4 . . . . . . .
-  . . e4 g4 a4 . g4 e4 | d4 . . . e4 . . .     -- A: return
-  . . c4 d4 e4 . g4 a4 | b4 . a4 . g4 . . .
-  . . e4 g4 a4 . c5 b4 | a4 . g4 . e4 . d4 .
-  . . . . . . . .      | . . . . . . . .         -- breathe
-  : vol .55
-
-harm sqr
-  . . c4 e4 e4 . e4 c4 | b3 . . . c4 . . .     -- A
-  . . a3 b3 c4 . e4 e4 | g4 . e4 . e4 . . .
-  . . c4 e4 e4 . a4 g4 | e4 . e4 . c4 . b3 .
-  a3 . b3 . c4 . . .   | . . . . . . . .
-  . . c4 e4 e4 . e4 c4 | b3 . . . c4 . . .     -- A
-  . . a3 b3 c4 . e4 e4 | g4 . e4 . e4 . . .
-  . . c4 e4 e4 . a4 g4 | e4 . e4 . c4 . b3 .
-  a3 . b3 . c4 . . .   | . . . . . . . .
-  . . e4 . a4 . b4 .   | c5 . . . b4 . a4 .     -- B
-  . . a4 b4 c5 . e5 .  | e5 . . . e5 . c5 .
-  . . b4 . a4 . e4 .   | e4 . . . e4 . . .
-  . . e4 e4 g4 . e4 .  | e4 . . . . . . .
-  . . c4 e4 e4 . e4 c4 | b3 . . . c4 . . .     -- A
-  . . a3 b3 c4 . e4 e4 | g4 . e4 . e4 . . .
-  . . c4 e4 e4 . a4 g4 | e4 . e4 . c4 . b3 .
-  . . . . . . . .      | . . . . . . . .
-  : vol .15
-
-bass saw
-  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .     -- Am G
-  f2 . . f2 . . f3 . | e2 . . e2 . . e3 .     -- F  Em
-  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
-  f2 . . f2 . . f3 e3 | d3 . e3 . . . . .
-  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .     -- repeat
-  f2 . . f2 . . f3 . | e2 . . e2 . . e3 .
-  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
-  f2 . . f2 . . f3 e3 | d3 . e3 . . . . .
-  f2 . . f2 . . f3 . | c2 . . c2 . . c3 .     -- B: F  C
-  d2 . . d2 . . d3 . | e2 . . e2 . . e3 .     --    Dm E
-  f2 . . f2 . . f3 . | g2 . . g2 . . g3 .     --    F  G
-  a2 . . a2 . . a3 . | a2 . . a2 . . e2 .     --    Am
-  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .     -- A: return
-  f2 . . f2 . . f3 . | e2 . . e2 . . e3 .
-  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
-  f2 . . f2 . . f3 . | e2 . . e2 . e2 e3 .
-  : lpf 320
-
-arp sin
-  a3 c4 e4 a4 c4 e4 a4 e4 -- Am
-  g3 b3 d4 g4 b3 d4 g4 d4 -- G
-  f3 a3 c4 f4 a3 c4 f4 c4 -- F
-  e3 g3 b3 e4 g3 b3 e4 b3 -- Em
-  a3 c4 e4 a4 c4 e4 a4 e4
-  g3 b3 d4 g4 b3 d4 g4 d4
-  f3 a3 c4 f4 a3 c4 f4 c4
-  e3 g3 b3 e4 b3 g3 e3 g3
-  f3 a3 c4 f4 a3 c4 f4 c4 -- B
-  c3 e3 g3 c4 e3 g3 c4 g3 -- C
-  d3 f3 a3 d4 f3 a3 d4 a3 -- Dm
-  e3 g#3 b3 e4 g#3 b3 e4 b3 -- E
-  f3 a3 c4 f4 a3 c4 f4 c4 -- F
-  g3 b3 d4 g4 b3 d4 g4 d4 -- G
-  a3 c4 e4 a4 c4 e4 a4 e4 -- Am
-  a3 c4 e4 a4 e4 c4 a3 e3 -- Am (fall)
-  : vol .1
-
-pad sin
-  a3 a3 a3 a3 a3 a3 a3 a3
-  g3 g3 g3 g3 g3 g3 g3 g3
-  f3 f3 f3 f3 f3 f3 f3 f3
-  e3 e3 e3 e3 e3 e3 e3 e3
-  a3 a3 a3 a3 e4 e4 e4 e4   -- A repeat: open the 5th overhead
-  g3 g3 g3 g3 d4 d4 d4 d4
-  f3 f3 f3 f3 c4 c4 c4 c4
-  e3 e3 e3 e3 b3 b3 b3 b3
-  f3 f3 f3 f3 f3 f3 f3 f3 -- B
-  c3 c3 c3 c3 c3 c3 c3 c3
-  d3 d3 d3 d3 d3 d3 d3 d3
-  e3 e3 e3 e3 e3 e3 e3 e3
-  f3 f3 f3 f3 f3 f3 f3 f3
-  g3 g3 g3 g3 g3 g3 g3 g3
-  a3 a3 a3 a3 a3 a3 a3 a3
-  a3 a3 a3 a3 e3 e3 e3 e3
-  : vol .06
-
-kick noise
-  x . . . x . . . | x . . . x . . .   -- A
-  x . . . x . . . | x . . . x . . .
-  x . . . x . . . | x . . . x . . .
-  x . . . x . . . | x . . x . . x .
-  x . . . x . . . | x . . . x . . .   -- A
-  x . . . x . . . | x . . . x . . .
-  x . . . x . . . | x . . . x . . .
-  x . . . x . . . | x . . x . . x .
-  x . . . . . x . | x . . . . . x .   -- B: half time
-  x . . . . . x . | x . . . . . x .
-  x . . . . . x . | x . . . . . x .
-  x . . . x . x . | x . x . x . x .   -- build
-  x . . . x . . . | x . . . x . . .   -- A
-  x . . . x . . . | x . . . x . . .
-  x . . . x . . . | x . . . x . . .
-  . . . . . . . . | . . . . . . . .   -- drop out
-  : lpf 55 decay .05
-
-snr noise
-  . . . . x . . . | . . . . x . . .   -- A
-  . . . . x . . . | . . . . x . . x
-  . . . . x . . . | . . . . x . . .
-  . . . . x . . . | . . x . x . x .
-  . . . . x . . . | . . . . x . . .   -- A
-  . . . . x . . . | . . . . x . . x
-  . . . . x . . . | . . . . x . . .
-  . . . . x . . . | . . x . x . x .
-  . . . . . . . . | . . . . x . . .   -- B: sparse
-  . . . . . . . . | . . . . x . . .
-  . . . . . . . . | . . . . x . . .
-  . . x . x . x . | x . x . x . x .   -- build
-  . . . . x . . . | . . . . x . . .   -- A
-  . . . . x . . . | . . . . x . . x
-  . . . . x . . . | . . . . x . . .
-  . . . . . . . . | . . . . . . . .   -- drop out
-  : lpf 4k hpf 1k decay .04
-
-hat noise
-  . x . x . x . x | . x . x . x . x   -- A
-  . x . x . x . x | . x . x . x x x
-  . x . x . x . x | . x . x . x . x
-  . x . x . x . x | x x . x x x x .
-  . x . x . x . x | . x . x . x . x   -- A
-  . x . x . x . x | . x . x . x x x
-  . x . x . x . x | . x . x . x . x
-  . x . x . x . x | x x . x x x x .
-  . . x . . . x . | . . x . . . x .   -- B: half time hat
-  . . x . . . x . | . . x . . . x .
-  . . x . . . x . | . . x . . . x .
-  x x x x x x x x | x x x x x x x x   -- fill
-  . x . x . x . x | . x . x . x . x   -- A
-  . x . x . x . x | . x . x . x x x
-  . x . x . x . x | . x . x . x . x
-  . . . . . . . . | . . . . . . . .   -- drop out
-  : hpf 9k decay .015
-</script>
-<script type="text/hum" data-preset="phosphene">
-bpm 88
-
--- phosphene
-lead tri
-  . . . e4 . g4 a4 .  | b4 . . . a4 . g4 .   -- verse
-  . . e4 . g4 . b4 .  | d5 . . . b4 . . .
-  . . . c5 . b4 a4 .  | g4 . . . e4 . . .     -- answer
-  . e4 g4 . a4 . . .  | . . . . . . . .
-  . . . e4 . g4 a4 .  | b4 . d5 . e5 . d5 .   -- lift
-  . . c5 . b4 . a4 .  | g4 . . . . . . .
-  . . . e5 . d5 b4 .  | a4 . g4 . e4 . . .    -- resolve
-  . . . . . . . .     | . . . . . . . .
-  : vol .45
-
-harm sqr
-  . . . c4 . e4 e4 .  | g4 . . . e4 . e4 .
-  . . c4 . e4 . g4 .  | b4 . . . g4 . . .
-  . . . a3 . g4 e4 .  | e4 . . . c4 . . .
-  . c4 e4 . e4 . . .  | . . . . . . . .
-  . . . c4 . e4 e4 .  | g4 . b4 . c5 . b4 .
-  . . a4 . g4 . e4 .  | e4 . . . . . . .
-  . . . c5 . b4 g4 .  | e4 . e4 . c4 . . .
-  . . . . . . . .     | . . . . . . . .
-  : vol .12
-
-bass saw
-  e2 . . e2 . . e3 .  | e2 . . e2 . . e3 .    -- Em
-  c2 . . c2 . . c3 .  | c2 . . c2 . . c3 .    -- C
-  a1 . . a1 . . a2 .  | a1 . . a1 . . a2 .    -- Am
-  d2 . . d2 . . d3 .  | d2 . . d2 . . e2 .    -- D
-  e2 . . e2 . . e3 .  | e2 . . e2 . . e3 .
-  c2 . . c2 . . c3 .  | c2 . . c2 . . c3 .
-  a1 . . a1 . . a2 .  | a1 . . a1 . . a2 .
-  b1 . . b1 . . b2 .  | d2 . . d2 . . e2 .    -- B→D→E turnaround
-  : lpf 220
-
-arp sin
-  e3 g3 b3 e4 b3 g3 b3 e4  -- Em
-  c3 e3 g3 c4 g3 e3 g3 c4  -- C
-  a2 c3 e3 a3 e3 c3 e3 a3  -- Am
-  d3 f#3 a3 d4 a3 f#3 a3 d4 -- D
-  e3 g3 b3 e4 b3 g3 b3 e4
-  c3 e3 g3 c4 g3 e3 g3 c4
-  a2 c3 e3 a3 e3 c3 e3 a3
-  b2 d3 f#3 b3 d3 f#3 b3 d3 -- Bm
-  : vol .1 lpf 1.5k
-
-pad sin
-  b3 b3 b3 b3 b3 b3 b3 b3
-  g3 g3 g3 g3 g3 g3 g3 g3
-  e3 e3 e3 e3 e3 e3 e3 e3
-  f#3 f#3 f#3 f#3 f#3 f#3 f#3 f#3
-  b3 b3 b3 b3 b3 b3 b3 b3
-  g3 g3 g3 g3 g3 g3 g3 g3
-  e3 e3 e3 e3 e3 e3 e3 e3
-  f#3 f#3 f#3 f#3 d3 d3 d3 d3
-  : vol .06 lpf 700
-
-kick noise
-  x . . . . . x .  | . . . . x . . .
-  x . . . . . x .  | . . . . x . . .
-  x . . . . . x .  | . . . . x . . .
-  x . . . . . x .  | . . x . x . . .
-  : lpf 45 decay .06
-
-hat noise
-  . . x . . x . .  | . . x . . . x .
-  . . x . . x . .  | . . x . . . x .
-  . . x . . x . .  | . . x . . . x .
-  . . x . . x x .  | . x x . . x . .
-  : hpf 7k decay .025
-
-snr noise
-  . . . . . . . .  | . . . . x . . .
-  . . . . . . . .  | . . . . x . . .
-  . . . . . . . .  | . . . . x . . .
-  . . . . . . . .  | . . . . x . x .
-  : lpf 3k hpf 1k decay .04
-</script>
-<script type="text/hum" data-preset="phrase">
-bpm 92
-
--- phrase  (per-step modifiers: hold, accent, ghost)
--- Same notes a verse-and-answer would have, but the dynamics live
--- inside each channel instead of being faked across multiple. Watch
--- for `*N` (hold), `!` (accent), `?` (ghost) on the lead and bass.
-
-lead tri
-  c5*4 e5! d5 c5 .            -- A: held tonic, accented landing, decay
-  b4? a4? g4! a4 b4 c5*2 .    -- ghost lead-in, then a held second
-  c5*4 e5! d5 c5 .
-  b4? a4? g4! c5*4 .          -- close on a held tonic
-  : vol .5
-
-bass saw
-  c3*4 g2 c2! . .             -- bass holds under the lead's held tonic
-  a2? . f2? . g2!*2 . .       -- ghost steps then an accented sustain
-  c3*4 g2 c2! . .
-  a2? . f2? . c3*4            -- mirror the lead's final hold
-  : lpf 350
-
-pad sin
-  c4*8                        -- one note across the whole bar
-  a3*8
-  c4*8
-  c4*8
-  : vol .08 lpf 700
-
-kick noise
-  x . . . x! . . .            -- accented backbeat
-  x . . . x! . . .
-  x . . . x! . . .
-  x . . . x! . . x
-  : lpf 50 decay .06
-
-hat noise
-  . . x? . . . x .            -- ghost the offbeat, normal on the &
-  : hpf 8k decay .02
 </script>
 <script type="text/hum" data-preset="slow-erosion">
 bpm 52
 
--- slow erosion
+-- slow erosion  (sparse polyrhythm, prime-length drones)
+-- Each channel uses *N to express its drone as one held token instead
+-- of repeated notes; the channel lengths stay coprime so no two voices
+-- ever quite align. Sparse triggers carry accent/ghost dynamics.
+
 earth sin                                    -- 7 steps
-  a1 a1 a1 a1 a1 g1 g1
+  a1*5 g1*2
   : vol .14 lpf 120
 
 tide sin                                     -- 11 steps
-  e2 e2 e2 e2 e2 e2 d2 d2 d2 d2 d2
+  e2*6 d2*5
   : vol .1 lpf 300
 
 moss tri                                     -- 9 steps
-  a2 a2 a2 c3 c3 c3 e3 e3 e3
+  a2*3 c3*3 e3*3
   : vol .07 lpf 600
 
 fog sin                                      -- 16 steps
-  e3 e3 e3 e3 e3 e3 e3 e3
-  g3 g3 g3 g3 g3 g3 g3 g3
+  e3*8 g3*8
   : vol .06 lpf 700
 
 haze tri                                     -- 19 steps
-  . . . . a3 . . . . .
+  . . . . a3? . . . . .
   . . . . . e3 . . .
   : vol .15
 
 stone sin                                    -- 17 steps
-  . . . . . . . b4 .
+  . . . . . . . b4! .                        -- a single accented bell tone
   . . . . . . . .
   : vol .12
 
 rain noise                                   -- 23 steps
   . . . . . . . . . . .
-  x . . . . . . . . . . .
+  x? . . . . . . . . . . .                   -- a barely-there hiss
   : vol .02 hpf 4k decay .06
 
 breath noise                                 -- 29 steps
   . . . . . . . . . . . . . . .
-  . . . . . . x . . . . . . .
+  . . . . . . x? . . . . . . .              -- ghost breath
   : vol .015 hpf 1k lpf 3k decay .2
-</script>
-<script type="text/hum" data-preset="tidal-memory">
-bpm 64
-
--- tidal memory
-deep sin                               -- 7 steps
-  c#2 c#2 c#2 c#2 c#2 c#2 b1
-  : vol .15 lpf 150
-
-root sin                               -- 8 steps
-  e2 e2 e2 e2 g#2 g#2 g#2 g#2
-  : vol .12 lpf 400
-
-fifth sin                              -- 9 steps
-  b3 b3 b3 b3 b3 g#3 g#3 g#3 g#3
-  : vol .1 lpf 500
-
-pad tri                                -- 16 steps
-  e3 e3 e3 e3 e3 e3 e3 e3
-  g#3 g#3 g#3 g#3 g#3 g#3 g#3 g#3
-  : vol .08 lpf 800
-
-voice tri                              -- 13 steps
-  . . e4 . . . b4 . . g#4 . . .
-  : vol .25
-
-bell sin                               -- 11 steps
-  . . . . g#5 . . . . . e5
-  : vol .15
-
-air noise                              -- 15 steps
-  . . . . . . . . x . . . . . .
-  : vol .03 hpf 3k decay .08
-</script>
-<script type="text/hum" data-preset="tidepool">
-bpm 72
-
--- tidepool  (held chords + soft dynamics)
--- before phase 2 the pad below would have been 32 lines of `a3 a3 a3 ...`;
--- now each chord is one token. ghost on the lead's pickups makes them
--- breathe; accent on the kick's downbeat plants the pulse.
-
-pad sin
-  a3*8 f3*8 c4*8 g3*8           -- Am  F  C  G — one held tone per bar
-  : vol .14 lpf 700
-
-low tri
-  a2*8 f2*8 c3*8 g2*8           -- octave below the pad
-  : vol .1 lpf 500
-
-bass saw
-  a1*4 . a2 . .                 -- root held half a bar, then a fill
-  f1*4 . f2 . .
-  c2*4 . c3 . .
-  g1*4 . g2 . .
-  : lpf 240
-
-lead tri
-  . . a4 c5 e5 . d5 c5
-  . a4? c5? d5? e5! d5 c5 b4    -- ghost climb into an accented apex
-  . . c5 e5 g5 . f5 e5
-  . c5? e5? f5? g5! f5 e5 d5
-  : vol .35
-
-kick noise
-  x! . . . x . . .              -- accent the downbeat so the held pad sits over it
-  x! . . . x . . .
-  x! . . . x . . .
-  x! . . . x . . x!
-  : lpf 55 decay .07
-
-hat noise
-  . x? . x . x? . x             -- ghost the offbeats; the ands stay normal
-  : hpf 8k decay .02
 </script>
 <!-- PRESETS:END -->
 <div id="app">
