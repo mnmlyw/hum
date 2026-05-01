@@ -88,7 +88,7 @@ Is equivalent to `lead tri c4 e4 g4 c5 g4 e4 c4 . : vol .5`. Comments are stripp
 ## Audio engine
 
 - Web Audio API, single `AudioContext`
-- Per-channel signal chain: `source → sourceGain → envelopeGain → hpf → lpf → volumeGain → analyser → compressor → destination` (filters are always present; `hpf` defaults to 0 Hz and `lpf` to 20 kHz when no effect is set)
+- Per-channel signal chain: `source → sourceGain → envelopeGain → hpf → lpf → volumeGain → meter → analyser → compressor → destination` (filters are always present; `hpf` defaults to 0 Hz and `lpf` to 20 kHz when no effect is set; `meter` is a per-channel `AnalyserNode` driving the footer mini-VU bars)
 - Pitched waveforms: continuous `OscillatorNode`, frequency set per step
 - Noise: looped `AudioBufferSourceNode` (2s random buffer)
 - `DynamicsCompressorNode` on master bus prevents clipping

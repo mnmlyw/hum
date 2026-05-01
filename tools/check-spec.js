@@ -60,10 +60,10 @@ const checks = [
     assert.deepEqual(wfMissing, [], `SPEC waveform list missing: ${wfMissing.join(', ')}`);
   }],
 
-  ['Signal chain: source → sourceGain → envelopeGain → hpf → lpf → volumeGain → analyser', () => {
+  ['Signal chain: source → sourceGain → envelopeGain → hpf → lpf → volumeGain → meter → analyser', () => {
     assert.match(
       spec,
-      /source → sourceGain → envelopeGain → hpf → lpf → volumeGain → analyser/,
+      /source → sourceGain → envelopeGain → hpf → lpf → volumeGain → meter → analyser/,
       'SPEC signal-chain text differs from expected order'
     );
     const cn = html.match(/function createChannelNode[\s\S]*?\n}\n/);
@@ -73,7 +73,7 @@ const checks = [
     const args = chainCall[1].split(',').map((s) => s.trim());
     assert.deepEqual(
       args,
-      ['source', 'sourceGain', 'envelopeGain', 'filterHPF', 'filterLPF', 'volumeGain', 'analyserNode'],
+      ['source', 'sourceGain', 'envelopeGain', 'filterHPF', 'filterLPF', 'volumeGain', 'meter', 'analyserNode'],
       `signal chain in code drifted: ${args.join(' → ')}`
     );
   }],

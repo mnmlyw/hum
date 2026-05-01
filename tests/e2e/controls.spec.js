@@ -71,6 +71,63 @@ test('rapid clicks during startup create exactly one scheduler (re-entrancy guar
   expect(await page.evaluate(() => window.__hum.schedulerCreations)).toBe(1);
 });
 
+test('preset picker loads the selected demo into the editor', async ({ page }) => {
+  await page.locator('#preset-picker').selectOption('glass');
+  // The glass demo always parses to 6 channels with bpm 96.
+  const { bpm, count } = await page.evaluate(() => {
+    const h = window.__hum.parse(document.getElementById('editor').value);
+    return { bpm: h.bpm, count: h.channels.length };
+  });
+  expect(bpm).toBe(96);
+  expect(count).toBe(6);
+  // Picker resets to the placeholder option after selection.
+  expect(await page.locator('#preset-picker').inputValue()).toBe('');
+});
+
+test('autosave: edits persist across reload', async ({ page }) => {
+  const sentinel = 'lead sin c4 e4 g4 c5 -- autosave probe';
+  await applyEdit(page, sentinel);
+  // Wait past the 500ms autosave debounce.
+  await page.waitForTimeout(700);
+  await page.reload();
+  await page.waitForFunction(() => window.__hum && window.__hum.parse);
+  const value = await page.evaluate(() => document.getElementById('editor').value);
+  expect(value).toBe(sentinel);
+});
+
+test('autosave: ?reset=1 ignores stored buffer and reseeds default', async ({ page }) => {
+  await applyEdit(page, 'lead sin c4');
+  await page.waitForTimeout(700);
+  await page.goto('index.html?test=1&reset=1');
+  await page.waitForFunction(() => window.__hum && window.__hum.parse);
+  const value = await page.evaluate(() => document.getElementById('editor').value);
+  expect(value.startsWith('bpm 96')).toBe(true); // DEFAULT_HUM begins with bpm 96
+});
+
+test('per-channel meters appear during playback and clear on stop', async ({ page }) => {
+  await applyEdit(page, 'bpm 120\nlead saw c3 e3 g3 c4\nbass saw c2 g2');
+  await page.click('#play-btn');
+  await page.waitForFunction(() => window.__hum.isPlaying);
+
+  // Meter elements track live channelNodes; one bar per playing channel.
+  await page.waitForFunction(
+    () => document.querySelectorAll('#meters .meter').length === 2
+  );
+
+  // At least one bar lights up within a few frames of audio.
+  await page.waitForFunction(() => {
+    const m = document.querySelectorAll('#meters .meter');
+    return [...m].some((el) => parseFloat(el.style.getPropertyValue('--lvl')) > 0);
+  }, null, { timeout: 3000 });
+
+  await page.click('#play-btn');
+  await page.waitForFunction(() => !window.__hum.isPlaying);
+  await page.waitForFunction(() => {
+    const m = document.querySelectorAll('#meters .meter');
+    return [...m].every((el) => el.style.getPropertyValue('--lvl') === '0%');
+  });
+});
+
 test('play button is a no-op when there are no parseable channels', async ({ page }) => {
   await applyEdit(page, '-- only a comment');
   await page.click('#play-btn');

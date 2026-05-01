@@ -2,4 +2,4 @@
 # Fast feedback only — lint + spec checker + Node tests.
 # The Playwright suite runs in CI; locally it's behind `npm run test:e2e`
 # or `npm run test:all`.
-npm run lint && npm run check:spec && npm test
+npm run lint && npm run check:spec && npm run preset:check && npm test

@@ -4,6 +4,32 @@ All notable changes to hum. Newest first.
 
 ## Unreleased
 
+### Features
+- **Per-channel mini-VU meters** in the footer. One bar per active
+  channel, RMS-driven, clip indicator on saturation. Driven by a
+  per-channel `AnalyserNode` inserted between `volumeGain` and the
+  master analyser.
+- **Auto-save to localStorage**: every settled edit persists. On
+  reload the last buffer is restored. `?reset=1` skips restore and
+  reseeds with the default hum.
+- **Preset picker** in the footer. Loads any of the six shipped
+  demos (glass, neon-drift, tidal-memory, slow-erosion, phosphene,
+  dust-and-iron) without going through the file dialog. Demos are
+  inlined into `index.html` via `<script type="text/hum">` blocks
+  so the picker works over `file://` where fetch is blocked.
+- **Floating translucent footer**: the footer now sits over the
+  editor with a 40 px gradient fade so code scrolls behind it
+  rather than being clipped above a hard line. Ported from the
+  retired `bottom-bar-redesign` branch.
+
+### Tooling
+- `tools/embed-presets.js` keeps the inlined demo blocks in sync
+  with `demos/`. `npm run preset:embed` writes; `npm run preset:check`
+  verifies (used by `test:all` and CI).
+- Removed dormant branches: `note-drag` (deferred indefinitely on
+  technical limitations), `bottom-bar-redesign` (merged via
+  cherry-port).
+
 ### Performance
 - `drawViz` skips the canvas redraw when the analyser's time-domain
   buffer hasn't changed (rolling stride hash). Cuts idle GPU work

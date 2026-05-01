@@ -45,7 +45,9 @@ html, body {
 #highlight {
   position: absolute;
   inset: 0;
-  padding: 32px 32px 48px;
+  /* Bottom padding leaves clearance for the fixed translucent footer
+     so the last lines of code don't sit under it. */
+  padding: 32px 32px 120px;
   /* Honour iOS safe-area insets when present (notch, side bezel). */
   padding-top: max(32px, env(safe-area-inset-top));
   padding-left: max(32px, env(safe-area-inset-left));
@@ -86,7 +88,7 @@ html, body {
   font-family: var(--font);
   font-size: 14px;
   line-height: 1.7;
-  padding: 32px 32px 48px;
+  padding: 32px 32px 120px;
   /* Match #highlight's safe-area-aware padding so the layers stay aligned. */
   padding-top: max(32px, env(safe-area-inset-top));
   padding-left: max(32px, env(safe-area-inset-left));
@@ -106,9 +108,20 @@ html, body {
 }
 
 #footer {
+  /* Floating translucent footer: code scrolls behind the gradient fade so
+     the editor reads continuously while the footer stays pinned. */
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
   z-index: 2;
-  border-top: 1px solid #1e2124;
-  background: var(--bg);
+  background: linear-gradient(to bottom,
+    rgba(22, 24, 26, 0) 0%,
+    rgba(22, 24, 26, 0.4) 25%,
+    rgba(22, 24, 26, 0.7) 50%,
+    rgba(22, 24, 26, 0.9) 75%,
+    rgba(22, 24, 26, 0.95) 100%);
+  padding-top: 40px;
   /* Bottom inset keeps the home indicator from overlapping controls. */
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
@@ -156,6 +169,21 @@ html, body {
 }
 
 #controls button:hover { color: var(--fg); }
+
+#preset-picker {
+  background: none;
+  border: none;
+  color: var(--fg2);
+  font-family: var(--font);
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 2px 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+#preset-picker:hover { color: var(--fg); }
+#preset-picker option { background: var(--bg); color: var(--fg); }
 #play-btn.playing { color: var(--cyan); }
 
 #step-bar {
@@ -188,6 +216,34 @@ html, body {
   color: var(--fg2);
   white-space: nowrap;
   flex-shrink: 0;
+}
+
+#meters {
+  display: flex;
+  gap: 3px;
+  align-items: flex-end;
+  height: 16px;
+}
+.meter {
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(to top, #2a2d32 0%, #2a2d32 100%);
+  border-radius: 1px;
+  position: relative;
+  overflow: hidden;
+}
+.meter::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--lvl, 0%);
+  background: var(--cyan);
+  transition: height 0.05s linear;
+}
+.meter.clip::after {
+  background: var(--error);
 }
 
 /* ── Mobile / touch ─────────────────────────────────────────────────
@@ -246,6 +302,469 @@ html, body {
 </style>
 </head>
 <body>
+<!-- PRESETS:START -->
+<script type="text/hum" data-preset="dust-and-iron">
+bpm 108
+
+-- dust and iron
+whistle tri
+  . . . . e5 . d5 .  | b4 . . . . . . .
+  . . . . e5 . g5 .  | f#5 . . . e5 . d5 .
+  . . . . b4 . d5 .  | e5 . . . . . . .
+  . . d5 . b4 . a4 .  | b4 . . . . . . .
+  : vol .5
+
+twang sqr
+  . . . . b3 . a3 .  | g3 . . . . . . .
+  . . . . b3 . d4 .  | d4 . . . b3 . a3 .
+  . . . . g3 . a3 .  | b3 . . . . . . .
+  . . a3 . g3 . f#3 .  | g3 . . . . . . .
+  : vol .15
+
+bass saw
+  e2 . . . e2 . e3 .  | e2 . . . e2 . . .   -- Em
+  e2 . . . e2 . e3 .  | e2 . . . e2 . . .
+  g2 . . . g2 . g3 .  | g2 . . . g2 . . .   -- G
+  b1 . . . d2 . e2 .  | e2 . . . . . . .   -- B→Em
+  : lpf 250
+
+gallop sin
+  e3 . e4 . e3 . e4 .  -- Em
+  e3 . e4 . e3 . e4 .
+  g3 . b3 . g3 . b3 .  -- G
+  b2 . d3 . b2 . e3 .  -- B→Em
+  : vol .08 lpf 800
+
+drone sin
+  b2 b2 b2 b2 b2 b2 b2 b2
+  b2 b2 b2 b2 b2 b2 b2 b2
+  d3 d3 d3 d3 d3 d3 d3 d3
+  b2 b2 b2 b2 b2 b2 b2 b2
+  : vol .06 lpf 400
+
+kick noise
+  x . . . . . x .  | . . x . . . . .
+  x . . . . . x .  | . . x . . . . .
+  x . . . . . x .  | . . x . . . . .
+  x . . x . . x .  | x . x . . . . .
+  : lpf 50 decay .06
+
+snr noise
+  . . . . x . . .  | . . . . . . x .
+  . . . . x . . .  | . . . . . . x .
+  . . . . x . . .  | . . . . . . x .
+  . . . . x . . x  | . . . . x . x .
+  : lpf 3k hpf 800 decay .04
+
+dust noise
+  . x . . . x . .  | . . . x . . . x
+  : vol .03 hpf 6k decay .015
+</script>
+<script type="text/hum" data-preset="glass">
+bpm 96
+
+-- glass
+lead tri
+  . . f#4 . a4 . c#5 . | d5 . . . c#5 . a4 .   -- A: verse
+  . . d4 . f#4 . a4 .  | b4 . . . a4 . . .
+  . . b4 . d5 . f#5 .  | e5 . . . d5 . b4 .
+  . . c#5 . e5 . . .   | d5 . c#5 . a4 . . .
+  . . f#4 . a4 . d5 .  | e5 . . . d5 . a4 .   -- A': variation
+  . . d4 . f#4 . b4 .  | c#5 . . . b4 . . .
+  . . f#4 . a4 . c#5 . | d5 . . . . . . .     -- B: open
+  . . . . . . . .      | . . . . . . . .
+  . . a4 . d5 . f#5 .  | g5 . . . f#5 . d5 .  -- C: climax
+  . . f#5 . e5 . d5 .  | c#5 . . . a4 . . .
+  . . b4 . d5 . f#5 .  | e5 . . . d5 . b4 .   -- A: return
+  . . c#5 . e5 . . .   | d5 . . . . . . .
+  : vol .5
+
+arp sin
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4  -- Dmaj7
+  b2 d3 f#3 a3 f#3 d3 f#3 a3  | b2 d3 f#3 a3 f#3 d3 f#3 a3   -- Bm7
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4  -- Dmaj7
+  b2 d3 f#3 a3 f#3 d3 f#3 a3  | b2 d3 f#3 a3 f#3 d3 f#3 a3   -- Bm7
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4  -- Dmaj7
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4
+  g3 b3 d4 f#4 d4 b3 d4 f#4   | g3 b3 d4 f#4 d4 b3 d4 f#4   -- Gmaj7 B
+  g3 b3 d4 g4 d4 b3 g3 b3     | g3 b3 d4 g4 d4 b3 g3 b3
+  e3 g#3 b3 e4 b3 g#3 b3 e4   | e3 g#3 b3 e4 b3 g#3 b3 e4   -- E  C
+  a3 c#4 e4 a4 e4 c#4 e4 a4   | a3 c#4 e4 a4 e4 c#4 e4 a4   -- A
+  g3 b3 d4 f#4 d4 b3 d4 f#4   | g3 b3 d4 f#4 d4 b3 d4 f#4   -- Gmaj7
+  a3 c#4 e4 a4 e4 c#4 a3 e3   | a3 c#4 e4 a4 e4 c#4 a3 e3   -- A (fall)
+  : vol .12 lpf 2k
+
+pad sin
+  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
+  b2 b2 b2 b2 b2 b2 b2 b2 | b2 b2 b2 b2 b2 b2 b2 b2
+  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
+  b2 b2 b2 b2 b2 b2 b2 b2 | b2 b2 b2 b2 b2 b2 b2 b2
+  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
+  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
+  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3  -- B
+  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3
+  e3 e3 e3 e3 e3 e3 e3 e3 | e3 e3 e3 e3 e3 e3 e3 e3  -- C
+  a3 a3 a3 a3 a3 a3 a3 a3 | a3 a3 a3 a3 a3 a3 a3 a3
+  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3
+  a3 a3 a3 a3 a3 a3 a3 a3 | a3 a3 a3 a3 a3 a3 a3 a3
+  : vol .08 lpf 600
+
+bass saw
+  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .  -- Dmaj7
+  b1 . . b1 . . b2 . | b1 . . b1 . . b2 .  -- Bm7
+  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .
+  b1 . . b1 . . b2 . | b1 . . b1 . . b2 .
+  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .  -- A'
+  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .
+  g2 . . g2 . . g3 . | g2 . . g2 . . g3 .  -- B
+  g2 . . . . . . .   | . . . . . . . .
+  e2 . . e2 . . e3 . | a2 . . a2 . . a3 .  -- C
+  a2 . . a2 . . a3 . | a2 . . a2 . . a3 .
+  g2 . . g2 . . g3 . | g2 . . g2 . . g3 .
+  a2 . . a2 . . a3 . | a2 . . a2 . . e2 .
+  : lpf 200
+
+kick noise
+  x . . . . . x . | . . . . x . . .  -- A
+  x . . . . . x . | . . . . x . . .
+  x . . . . . x . | . . . . x . . .
+  x . . . . . x . | . . . . x . . .
+  x . . . . . x . | . . . . x . . .  -- A'
+  x . . . . . x . | . . . . x . . .
+  x . . . . . . . | . . . . . . . .  -- B
+  . . . . . . . . | . . . . . . . .
+  x . . . . . x . | x . . . . . x .  -- C
+  x . . . . . x . | . . x . . . x .
+  x . . . . . x . | . . . . x . . .
+  x . . . . . x . | . . . . . . . .
+  : lpf 50 decay .06
+
+hat noise
+  . . x . . . x . | . . x . . . x .  -- A
+  . . x . . . x . | . . x . . . x .
+  . . x . . . x . | . . x . . . x .
+  . . x . . . x . | . . x . . x x .
+  . . x . . . x . | . . x . . . x .  -- A'
+  . . x . . x x . | . . x . . . x .
+  . . x . . . . . | . . . . . . . .  -- B
+  . . . . . . . . | . . . . . . . .
+  . . x . . x . . | . . x . . x . .  -- C
+  . . x . . x . . | . x x . . . x .
+  . . x . . . x . | . . x . . . x .
+  . . x . . . x . | . . . . . . . .
+  : hpf 8k decay .03
+</script>
+<script type="text/hum" data-preset="neon-drift">
+bpm 138
+
+-- neon drift
+lead tri
+  . . e4 g4 a4 . g4 e4 | d4 . . . e4 . . .     -- A: verse
+  . . c4 d4 e4 . g4 a4 | b4 . a4 . g4 . . .
+  . . e4 g4 a4 . c5 b4 | a4 . g4 . e4 . d4 .
+  c4 . d4 . e4 . . .   | . . . . . . . .
+  . . e4 g4 a4 . g4 e4 | d4 . . . e4 . . .     -- A: repeat
+  . . c4 d4 e4 . g4 a4 | b4 . a4 . g4 . . .
+  . . e4 g4 a4 . c5 b4 | a4 . g4 . e4 . d4 .
+  c4 . d4 . e4 . . .   | . . . . . . . .
+  . . a4 . c5 . d5 .   | e5 . . . d5 . c5 .     -- B: lift
+  . . c5 d5 e5 . g5 .  | a5 . . . g5 . e5 .
+  . . d5 . c5 . a4 .   | g4 . . . a4 . . .
+  . . g4 a4 b4 . a4 .  | g4 . . . . . . .
+  . . e4 g4 a4 . g4 e4 | d4 . . . e4 . . .     -- A: return
+  . . c4 d4 e4 . g4 a4 | b4 . a4 . g4 . . .
+  . . e4 g4 a4 . c5 b4 | a4 . g4 . e4 . d4 .
+  . . . . . . . .      | . . . . . . . .         -- breathe
+  : vol .55
+
+harm sqr
+  . . c4 e4 e4 . e4 c4 | b3 . . . c4 . . .     -- A
+  . . a3 b3 c4 . e4 e4 | g4 . e4 . e4 . . .
+  . . c4 e4 e4 . a4 g4 | e4 . e4 . c4 . b3 .
+  a3 . b3 . c4 . . .   | . . . . . . . .
+  . . c4 e4 e4 . e4 c4 | b3 . . . c4 . . .     -- A
+  . . a3 b3 c4 . e4 e4 | g4 . e4 . e4 . . .
+  . . c4 e4 e4 . a4 g4 | e4 . e4 . c4 . b3 .
+  a3 . b3 . c4 . . .   | . . . . . . . .
+  . . e4 . a4 . b4 .   | c5 . . . b4 . a4 .     -- B
+  . . a4 b4 c5 . e5 .  | e5 . . . e5 . c5 .
+  . . b4 . a4 . e4 .   | e4 . . . e4 . . .
+  . . e4 e4 g4 . e4 .  | e4 . . . . . . .
+  . . c4 e4 e4 . e4 c4 | b3 . . . c4 . . .     -- A
+  . . a3 b3 c4 . e4 e4 | g4 . e4 . e4 . . .
+  . . c4 e4 e4 . a4 g4 | e4 . e4 . c4 . b3 .
+  . . . . . . . .      | . . . . . . . .
+  : vol .15
+
+bass saw
+  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .     -- Am G
+  f2 . . f2 . . f3 . | e2 . . e2 . . e3 .     -- F  Em
+  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
+  f2 . . f2 . . f3 e3 | d3 . e3 . . . . .
+  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .     -- repeat
+  f2 . . f2 . . f3 . | e2 . . e2 . . e3 .
+  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
+  f2 . . f2 . . f3 e3 | d3 . e3 . . . . .
+  f2 . . f2 . . f3 . | c2 . . c2 . . c3 .     -- B: F  C
+  d2 . . d2 . . d3 . | e2 . . e2 . . e3 .     --    Dm E
+  f2 . . f2 . . f3 . | g2 . . g2 . . g3 .     --    F  G
+  a2 . . a2 . . a3 . | a2 . . a2 . . e2 .     --    Am
+  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .     -- A: return
+  f2 . . f2 . . f3 . | e2 . . e2 . . e3 .
+  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
+  f2 . . f2 . . f3 . | e2 . . e2 . e2 e3 .
+  : lpf 320
+
+arp sin
+  a3 c4 e4 a4 c4 e4 a4 e4 -- Am
+  g3 b3 d4 g4 b3 d4 g4 d4 -- G
+  f3 a3 c4 f4 a3 c4 f4 c4 -- F
+  e3 g3 b3 e4 g3 b3 e4 b3 -- Em
+  a3 c4 e4 a4 c4 e4 a4 e4
+  g3 b3 d4 g4 b3 d4 g4 d4
+  f3 a3 c4 f4 a3 c4 f4 c4
+  e3 g3 b3 e4 b3 g3 e3 g3
+  f3 a3 c4 f4 a3 c4 f4 c4 -- B
+  c3 e3 g3 c4 e3 g3 c4 g3 -- C
+  d3 f3 a3 d4 f3 a3 d4 a3 -- Dm
+  e3 g#3 b3 e4 g#3 b3 e4 b3 -- E
+  f3 a3 c4 f4 a3 c4 f4 c4 -- F
+  g3 b3 d4 g4 b3 d4 g4 d4 -- G
+  a3 c4 e4 a4 c4 e4 a4 e4 -- Am
+  a3 c4 e4 a4 e4 c4 a3 e3 -- Am (fall)
+  : vol .1
+
+pad sin
+  a3 a3 a3 a3 a3 a3 a3 a3
+  g3 g3 g3 g3 g3 g3 g3 g3
+  f3 f3 f3 f3 f3 f3 f3 f3
+  e3 e3 e3 e3 e3 e3 e3 e3
+  a3 a3 a3 a3 a3 a3 a3 a3
+  g3 g3 g3 g3 g3 g3 g3 g3
+  f3 f3 f3 f3 f3 f3 f3 f3
+  e3 e3 e3 e3 e3 e3 e3 e3
+  f3 f3 f3 f3 f3 f3 f3 f3 -- B
+  c3 c3 c3 c3 c3 c3 c3 c3
+  d3 d3 d3 d3 d3 d3 d3 d3
+  e3 e3 e3 e3 e3 e3 e3 e3
+  f3 f3 f3 f3 f3 f3 f3 f3
+  g3 g3 g3 g3 g3 g3 g3 g3
+  a3 a3 a3 a3 a3 a3 a3 a3
+  a3 a3 a3 a3 e3 e3 e3 e3
+  : vol .06
+
+kick noise
+  x . . . x . . . | x . . . x . . .   -- A
+  x . . . x . . . | x . . . x . . .
+  x . . . x . . . | x . . . x . . .
+  x . . . x . . . | x . . x . . x .
+  x . . . x . . . | x . . . x . . .   -- A
+  x . . . x . . . | x . . . x . . .
+  x . . . x . . . | x . . . x . . .
+  x . . . x . . . | x . . x . . x .
+  x . . . . . x . | x . . . . . x .   -- B: half time
+  x . . . . . x . | x . . . . . x .
+  x . . . . . x . | x . . . . . x .
+  x . . . x . x . | x . x . x . x .   -- build
+  x . . . x . . . | x . . . x . . .   -- A
+  x . . . x . . . | x . . . x . . .
+  x . . . x . . . | x . . . x . . .
+  . . . . . . . . | . . . . . . . .   -- drop out
+  : lpf 55 decay .05
+
+snr noise
+  . . . . x . . . | . . . . x . . .   -- A
+  . . . . x . . . | . . . . x . . x
+  . . . . x . . . | . . . . x . . .
+  . . . . x . . . | . . x . x . x .
+  . . . . x . . . | . . . . x . . .   -- A
+  . . . . x . . . | . . . . x . . x
+  . . . . x . . . | . . . . x . . .
+  . . . . x . . . | . . x . x . x .
+  . . . . . . . . | . . . . x . . .   -- B: sparse
+  . . . . . . . . | . . . . x . . .
+  . . . . . . . . | . . . . x . . .
+  . . x . x . x . | x . x . x . x .   -- build
+  . . . . x . . . | . . . . x . . .   -- A
+  . . . . x . . . | . . . . x . . x
+  . . . . x . . . | . . . . x . . .
+  . . . . . . . . | . . . . . . . .   -- drop out
+  : lpf 4k hpf 1k decay .04
+
+hat noise
+  . x . x . x . x | . x . x . x . x   -- A
+  . x . x . x . x | . x . x . x x x
+  . x . x . x . x | . x . x . x . x
+  . x . x . x . x | x x . x x x x .
+  . x . x . x . x | . x . x . x . x   -- A
+  . x . x . x . x | . x . x . x x x
+  . x . x . x . x | . x . x . x . x
+  . x . x . x . x | x x . x x x x .
+  . . x . . . x . | . . x . . . x .   -- B: half time hat
+  . . x . . . x . | . . x . . . x .
+  . . x . . . x . | . . x . . . x .
+  x x x x x x x x | x x x x x x x x   -- fill
+  . x . x . x . x | . x . x . x . x   -- A
+  . x . x . x . x | . x . x . x x x
+  . x . x . x . x | . x . x . x . x
+  . . . . . . . . | . . . . . . . .   -- drop out
+  : hpf 9k decay .015
+</script>
+<script type="text/hum" data-preset="phosphene">
+bpm 88
+
+-- phosphene
+lead tri
+  . . . e4 . g4 a4 .  | b4 . . . a4 . g4 .   -- verse
+  . . e4 . g4 . b4 .  | d5 . . . b4 . . .
+  . . . c5 . b4 a4 .  | g4 . . . e4 . . .     -- answer
+  . e4 g4 . a4 . . .  | . . . . . . . .
+  . . . e4 . g4 a4 .  | b4 . d5 . e5 . d5 .   -- lift
+  . . c5 . b4 . a4 .  | g4 . . . . . . .
+  . . . e5 . d5 b4 .  | a4 . g4 . e4 . . .    -- resolve
+  . . . . . . . .     | . . . . . . . .
+  : vol .45
+
+harm sqr
+  . . . c4 . e4 e4 .  | g4 . . . e4 . e4 .
+  . . c4 . e4 . g4 .  | b4 . . . g4 . . .
+  . . . a3 . g4 e4 .  | e4 . . . c4 . . .
+  . c4 e4 . e4 . . .  | . . . . . . . .
+  . . . c4 . e4 e4 .  | g4 . b4 . c5 . b4 .
+  . . a4 . g4 . e4 .  | e4 . . . . . . .
+  . . . c5 . b4 g4 .  | e4 . e4 . c4 . . .
+  . . . . . . . .     | . . . . . . . .
+  : vol .12
+
+bass saw
+  e2 . . e2 . . e3 .  | e2 . . e2 . . e3 .    -- Em
+  c2 . . c2 . . c3 .  | c2 . . c2 . . c3 .    -- C
+  a1 . . a1 . . a2 .  | a1 . . a1 . . a2 .    -- Am
+  d2 . . d2 . . d3 .  | d2 . . d2 . . e2 .    -- D
+  e2 . . e2 . . e3 .  | e2 . . e2 . . e3 .
+  c2 . . c2 . . c3 .  | c2 . . c2 . . c3 .
+  a1 . . a1 . . a2 .  | a1 . . a1 . . a2 .
+  b1 . . b1 . . b2 .  | d2 . . d2 . . e2 .    -- B→D→E turnaround
+  : lpf 220
+
+arp sin
+  e3 g3 b3 e4 b3 g3 b3 e4  -- Em
+  c3 e3 g3 c4 g3 e3 g3 c4  -- C
+  a2 c3 e3 a3 e3 c3 e3 a3  -- Am
+  d3 f#3 a3 d4 a3 f#3 a3 d4 -- D
+  e3 g3 b3 e4 b3 g3 b3 e4
+  c3 e3 g3 c4 g3 e3 g3 c4
+  a2 c3 e3 a3 e3 c3 e3 a3
+  b2 d3 f#3 b3 d3 f#3 b3 d3 -- Bm
+  : vol .1 lpf 1.5k
+
+pad sin
+  b3 b3 b3 b3 b3 b3 b3 b3
+  g3 g3 g3 g3 g3 g3 g3 g3
+  e3 e3 e3 e3 e3 e3 e3 e3
+  f#3 f#3 f#3 f#3 f#3 f#3 f#3 f#3
+  b3 b3 b3 b3 b3 b3 b3 b3
+  g3 g3 g3 g3 g3 g3 g3 g3
+  e3 e3 e3 e3 e3 e3 e3 e3
+  f#3 f#3 f#3 f#3 d3 d3 d3 d3
+  : vol .06 lpf 700
+
+kick noise
+  x . . . . . x .  | . . . . x . . .
+  x . . . . . x .  | . . . . x . . .
+  x . . . . . x .  | . . . . x . . .
+  x . . . . . x .  | . . x . x . . .
+  : lpf 45 decay .06
+
+hat noise
+  . . x . . x . .  | . . x . . . x .
+  . . x . . x . .  | . . x . . . x .
+  . . x . . x . .  | . . x . . . x .
+  . . x . . x x .  | . x x . . x . .
+  : hpf 7k decay .025
+
+snr noise
+  . . . . . . . .  | . . . . x . . .
+  . . . . . . . .  | . . . . x . . .
+  . . . . . . . .  | . . . . x . . .
+  . . . . . . . .  | . . . . x . x .
+  : lpf 3k hpf 1k decay .04
+</script>
+<script type="text/hum" data-preset="slow-erosion">
+bpm 52
+
+-- slow erosion
+earth sin                                    -- 7 steps
+  a1 a1 a1 a1 a1 g1 g1
+  : vol .14 lpf 120
+
+tide sin                                     -- 11 steps
+  e2 e2 e2 e2 e2 e2 d2 d2 d2 d2 d2
+  : vol .1 lpf 300
+
+moss tri                                     -- 9 steps
+  a2 a2 a2 c3 c3 c3 e3 e3 e3
+  : vol .07 lpf 600
+
+fog sin                                      -- 16 steps
+  e3 e3 e3 e3 e3 e3 e3 e3
+  g3 g3 g3 g3 g3 g3 g3 g3
+  : vol .06 lpf 700
+
+haze tri                                     -- 19 steps
+  . . . . a3 . . . . .
+  . . . . . e3 . . .
+  : vol .15
+
+stone sin                                    -- 17 steps
+  . . . . . . . b4 .
+  . . . . . . . .
+  : vol .12
+
+rain noise                                   -- 23 steps
+  . . . . . . . . . . .
+  x . . . . . . . . . . .
+  : vol .02 hpf 4k decay .06
+
+breath noise                                 -- 29 steps
+  . . . . . . . . . . . . . . .
+  . . . . . . x . . . . . . .
+  : vol .015 hpf 1k lpf 3k decay .2
+</script>
+<script type="text/hum" data-preset="tidal-memory">
+bpm 64
+
+-- tidal memory
+deep sin                               -- 7 steps
+  c#2 c#2 c#2 c#2 c#2 c#2 b1
+  : vol .15 lpf 150
+
+root sin                               -- 8 steps
+  e2 e2 e2 e2 g#2 g#2 g#2 g#2
+  : vol .12 lpf 400
+
+fifth sin                              -- 9 steps
+  b3 b3 b3 b3 b3 g#3 g#3 g#3 g#3
+  : vol .1 lpf 500
+
+pad tri                                -- 16 steps
+  e3 e3 e3 e3 e3 e3 e3 e3
+  g#3 g#3 g#3 g#3 g#3 g#3 g#3 g#3
+  : vol .08 lpf 800
+
+voice tri                              -- 13 steps
+  . . e4 . . . b4 . . g#4 . . .
+  : vol .25
+
+bell sin                               -- 11 steps
+  . . . . g#5 . . . . . e5
+  : vol .15
+
+air noise                              -- 15 steps
+  . . . . . . . . x . . . . . .
+  : vol .03 hpf 3k decay .08
+</script>
+<!-- PRESETS:END -->
 <div id="app">
   <div id="editor-wrap">
     <div id="highlight"></div>
@@ -265,11 +784,15 @@ html, body {
     <div id="info-bar">
       <div id="step-bar"></div>
       <div id="spacer"></div>
+      <div id="meters"></div>
       <div id="channel-info"></div>
     </div>
     <div id="controls">
       <button id="play-btn">play</button>
       <div id="spacer2"></div>
+      <select id="preset-picker" aria-label="load demo">
+        <option value="" selected>presets</option>
+      </select>
       <button id="load-btn">load</button>
       <button id="save-btn">save</button>
     </div>
@@ -549,13 +1072,18 @@ function createChannelNode(ch, registryKey) {
   const filterHPF = makeFilter('highpass', ch.effects.hpf ?? HPF_OPEN);
   const filterLPF = makeFilter('lowpass', ch.effects.lpf ?? LPF_OPEN);
   const volumeGain = makeGain(ch.effects.vol);
+  // Per-channel analyser feeds the mini-VU strip in the footer. Tiny FFT —
+  // we only need RMS-ish loudness, not spectrum detail.
+  const meter = audioCtx.createAnalyser();
+  meter.fftSize = 256;
+  meter.smoothingTimeConstant = 0.6;
 
-  chain(source, sourceGain, envelopeGain, filterHPF, filterLPF, volumeGain, analyserNode);
+  chain(source, sourceGain, envelopeGain, filterHPF, filterLPF, volumeGain, meter, analyserNode);
   source.start();
 
   return {
     source, sourceGain, envelopeGain,
-    filterLPF, filterHPF, volumeGain,
+    filterLPF, filterHPF, volumeGain, meter,
     channel: ch, registryKey,
     notBefore: 0,      // scheduler skips steps where t < notBefore
     stoppedAt: Infinity // scheduler skips steps where t >= stoppedAt
@@ -566,6 +1094,7 @@ function disconnectNode(node) {
   try { node.source.stop(); } catch (e) {}
   try { node.source.disconnect(); } catch (e) {}
   try { node.sourceGain.disconnect(); } catch (e) {}
+  try { node.meter.disconnect(); } catch (e) {}
   try { node.envelopeGain.disconnect(); } catch (e) {}
   try { node.filterLPF.disconnect(); } catch (e) {}
   try { node.filterHPF.disconnect(); } catch (e) {}
@@ -730,7 +1259,10 @@ class Scheduler {
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const stepBar = document.getElementById('step-bar');
+const metersBar = document.getElementById('meters');
 let stepDots = [];
+let meterEls = [];
+const meterBuf = new Uint8Array(128); // matches half of fftSize=256
 let vizBuffer = null;
 let stepSpanMap = {};
 let prevPlaying = [];
@@ -755,6 +1287,19 @@ function buildStepDots(count) {
     dot.className = 'step-dot' + (i % 8 === 0 ? ' beat' : '');
     stepBar.appendChild(dot);
     stepDots.push(dot);
+  }
+}
+
+function syncMeters(count) {
+  while (meterEls.length < count) {
+    const m = document.createElement('div');
+    m.className = 'meter';
+    metersBar.appendChild(m);
+    meterEls.push(m);
+  }
+  while (meterEls.length > count) {
+    const m = meterEls.pop();
+    metersBar.removeChild(m);
   }
 }
 
@@ -799,6 +1344,28 @@ function drawViz() {
       ctx.fill();
     }
 
+    // Per-channel mini-VU. RMS over the time-domain buffer of each
+    // channel's own analyser, mapped to 0–100% bar height. Clip flag
+    // turns on when any sample saturates near ±1.
+    if (channelNodes.length !== meterEls.length) syncMeters(channelNodes.length);
+    for (let i = 0; i < channelNodes.length; i++) {
+      const a = channelNodes[i].meter;
+      a.getByteTimeDomainData(meterBuf);
+      let sumSq = 0, peak = 0;
+      for (let j = 0; j < meterBuf.length; j++) {
+        const v = meterBuf[j] - 128;
+        sumSq += v * v;
+        if (v > peak) peak = v;
+        else if (-v > peak) peak = -v;
+      }
+      const rms = Math.sqrt(sumSq / meterBuf.length) / 128;
+      // log-ish scale so a quiet hum still moves the bar
+      const lvl = Math.min(1, Math.sqrt(rms * 2));
+      const el = meterEls[i];
+      el.style.setProperty('--lvl', `${(lvl * 100).toFixed(1)}%`);
+      el.classList.toggle('clip', peak > 124);
+    }
+
     // Step dots + note playhead. Time-based; updated even when the waveform
     // hash didn't change.
     if (scheduler && stepDots.length > 0) {
@@ -829,6 +1396,10 @@ function drawViz() {
     ctx.clearRect(0, 0, w, h);
     for (const dot of stepDots) dot.classList.remove('active');
     for (const el of prevPlaying) el.classList.remove('playing');
+    for (const m of meterEls) {
+      m.style.setProperty('--lvl', '0%');
+      m.classList.remove('clip');
+    }
     prevPlaying = [];
     lastActiveDotIdx = -1;
     lastBufHash = -1;
@@ -1086,6 +1657,9 @@ function onInput() {
   if (isPlaying && audioCtx) {
     liveUpdate(hum);
   }
+
+  // Persist after the change has been parsed + applied.
+  if (typeof scheduleAutosave === 'function') scheduleAutosave();
 }
 
 // ── Live Coding ─────────────────────────────────────────────────────
@@ -1366,7 +1940,29 @@ kick noise x . . . . . x . | . . . . x . . .
 hat noise . . x . . . x . | . . x . . . x .
   : hpf 8k decay .03`;
 
-editor.value = DEFAULT_HUM;
+// ── Auto-save (localStorage) ────────────────────────────────────────
+//
+// Refresh-and-lose-everything is the most common foot-gun. On load,
+// restore the last-edited buffer; on every settled edit, persist it.
+// `?reset=1` in the URL skips restore and re-seeds with DEFAULT_HUM.
+//
+// Persistence runs from onInput (not the DOM input event) so any
+// state change — including programmatic loads, tab insertion, preset
+// picker, drag-drop — gets saved by the same single code path.
+const STORAGE_KEY = 'hum:buffer';
+const stored = new URLSearchParams(location.search).has('reset') ? null : (() => {
+  try { return localStorage.getItem(STORAGE_KEY); } catch (e) { return null; }
+})();
+editor.value = stored && stored.trim() ? stored : DEFAULT_HUM;
+
+let saveTimer = null;
+function scheduleAutosave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { localStorage.setItem(STORAGE_KEY, editor.value); } catch (e) {}
+  }, 500);
+}
+
 onInput();
 
 // ── Save / Load ─────────────────────────────────────────────────────
@@ -1406,6 +2002,29 @@ function loadFile(file) {
   };
   reader.readAsText(file);
 }
+
+// Preset picker — reads inlined `<script type="text/hum" data-preset>`
+// blocks synced from demos/ by tools/embed-presets.js. Inlining keeps
+// this working over `file://` where fetch is blocked.
+const presetPicker = document.getElementById('preset-picker');
+const presetBlocks = new Map();
+for (const el of document.querySelectorAll('script[type="text/hum"][data-preset]')) {
+  const name = el.dataset.preset;
+  presetBlocks.set(name, el.textContent.replace(/^\n/, '').replace(/\n$/, ''));
+  const opt = document.createElement('option');
+  opt.value = name;
+  opt.textContent = name;
+  presetPicker.appendChild(opt);
+}
+presetPicker.addEventListener('change', () => {
+  const name = presetPicker.value;
+  const text = presetBlocks.get(name);
+  if (text) {
+    editor.value = text;
+    onInput();
+  }
+  presetPicker.value = '';
+});
 
 // Drag and drop
 document.addEventListener('dragover', (e) => { e.preventDefault(); });

@@ -5,8 +5,10 @@
   "scripts": {
     "test": "node --test tests/parser.test.js",
     "test:e2e": "playwright test",
-    "test:all": "npm run lint && npm run check:spec && npm test && npm run test:e2e",
+    "test:all": "npm run lint && npm run check:spec && npm run preset:check && npm test && npm run test:e2e",
     "check:spec": "node tools/check-spec.js",
+    "preset:embed": "node tools/embed-presets.js",
+    "preset:check": "node tools/embed-presets.js --check",
     "lint": "eslint tests tools",
     "prepare": "husky"
   },

@@ -24,6 +24,8 @@ jobs:
 
       - run: npm run check:spec
 
+      - run: npm run preset:check
+
       - run: npm test
 
       - name: Cache Playwright browsers
