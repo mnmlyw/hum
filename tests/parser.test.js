@@ -260,9 +260,10 @@ describe('parser: pattern tokens', () => {
     assert.equal(hum.channels[0].pattern.length, 8);
   });
 
-  it('ignores commas', () => {
-    const hum = parse('lead tri c4 e4, g4 c5');
-    assert.equal(hum.channels[0].pattern.length, 4);
+  it('rejects commas (no longer cosmetic separators)', () => {
+    const hum = parse('lead tri c4 , e4');
+    // standalone comma is an unknown token → error + rest substitution
+    assert.ok(hum.errors.some((e) => /unknown note/.test(e.message)));
   });
 
   it('reports unknown notes as errors', () => {
@@ -535,6 +536,28 @@ describe('parser: real hum files', () => {
     assert.equal(hum.bpm, 88);
     assert.equal(hum.channels.length, 8);
     assert.equal(hum.errors.length, 0);
+  });
+
+  it('parses micro-cell.hum (polyrhythm showcase)', () => {
+    const text = readFileSync(new URL('../demos/micro-cell.hum', import.meta.url), 'utf8');
+    const hum = parse(text);
+    assert.equal(hum.bpm, 100);
+    assert.equal(hum.channels.length, 5);
+    assert.equal(hum.errors.length, 0);
+    // Coprime channel lengths produce the polyrhythm: 7, 11, 5, 13, 8.
+    const lens = hum.channels.map((c) => c.pattern.length).sort((a, b) => a - b);
+    assert.deepEqual(lens, [5, 7, 8, 11, 13]);
+  });
+
+  it('parses flux.hum (fast feature platter)', () => {
+    const text = readFileSync(new URL('../demos/flux.hum', import.meta.url), 'utf8');
+    const hum = parse(text);
+    assert.equal(hum.bpm, 200);
+    assert.equal(hum.channels.length, 8);
+    assert.equal(hum.errors.length, 0);
+    // Every documented waveform is exercised somewhere.
+    const waveforms = new Set(hum.channels.map((c) => c.waveform));
+    assert.deepEqual([...waveforms].sort(), ['noise', 'saw', 'sin', 'sqr', 'tri']);
   });
 
   it('default hum in index.html parses without errors', () => {

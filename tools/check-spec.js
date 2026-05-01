@@ -118,12 +118,6 @@ const checks = [
       'Cmd+Enter playing branch does not call onInput()');
   }],
 
-  ['Comma is an accepted (cosmetic) pattern separator', () => {
-    assert.match(spec, /\bseparators\b[\s\S]{0,80}`,`/,
-      'SPEC pattern-tokens list must mention `,` alongside `|`');
-    assert.match(html, /t !== '\|' && t !== ','/,
-      'parser dropped the comma filter');
-  }],
 ];
 
 let failed = 0;

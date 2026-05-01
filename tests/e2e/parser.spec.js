@@ -101,8 +101,8 @@ test('vol is clamped to [0, 1]', async ({ page }) => {
   expect(low.channels[0].effects.vol).toBe(0);
 });
 
-test('bar line and comma are ignored as pattern separators', async ({ page }) => {
-  const r = await parse(page, 'lead sin c4 | e4 , g4');
+test('bar line is ignored as a pattern separator', async ({ page }) => {
+  const r = await parse(page, 'lead sin c4 | e4 | g4');
   expect(r.channels[0].pattern).toHaveLength(3);
   expect(r.channels[0].pattern.map((s) => s.name)).toEqual(['c4', 'e4', 'g4']);
 });

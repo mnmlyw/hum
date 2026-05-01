@@ -44,7 +44,7 @@ A hum is a sequence of lines. Each line is one of:
 - **note** — `c4`, `eb3`, `f#5` (letter + optional sharp/flat + octave 0-8)
 - **trigger** — `x` (envelope fires using the channel's most recent frequency; primarily for noise/percussive hits, but accepted on any waveform)
 - **rest** — `.` (also `_`)
-- **separators** — `|` and `,` (cosmetic, ignored by parser; e.g. `c4 | e4` or `c4, e4, g4`)
+- **bar line** — `|` (cosmetic, ignored by parser; e.g. `c4 | e4`)
 
 Each token is one step. A step is an 8th note. 8 steps = 1 bar of 4/4.
 

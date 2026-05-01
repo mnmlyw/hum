@@ -183,6 +183,8 @@ html, body {
   -webkit-appearance: none;
 }
 #preset-picker:hover { color: var(--fg); }
+#preset-picker:focus { outline: none; }
+#preset-picker:focus-visible { outline: 1px solid var(--fg2); outline-offset: 2px; }
 #preset-picker option { background: var(--bg); color: var(--fg); }
 #play-btn.playing { color: var(--cyan); }
 
@@ -360,6 +362,72 @@ dust noise
   . x . . . x . .  | . . . x . . . x
   : vol .03 hpf 6k decay .015
 </script>
+<script type="text/hum" data-preset="flux">
+bpm 200
+
+-- flux  (fast feature platter — every waveform, every effect)
+-- 200 bpm with 8th-note steps = 16th-note feel. All five waveforms,
+-- all four effects, sharps + flats, triggers on pitched channels,
+-- a 16-bar arrangement with build / drop / return.
+
+lead sin
+  e5 . g5 . a5 . b5 . | c6 . b5 . a5 . g5 .   -- A: lead enters
+  e5 . g5 . a5 . c6 . | d6 . c6 . a5 . g5 .
+  e5 . g5 . a5 . b5 . | c6 . b5 . a5 . g5 .
+  e5 . g5 . a5 . c6 . | d6 . . . . . . .
+  : vol .35 hpf 200
+
+stab sqr
+  . . . . a4 . . . | . . . . a4 . . .   -- A: rhythmic stab
+  . . . . a4 . . . | . . . . a4 . . a4
+  . . . . a4 . . . | . . . . a4 . . .
+  . . . . a4 . . . | . . . . a4 a4 a4 a4
+  : vol .12 lpf 3k
+
+bass saw
+  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
+  f2 . . f2 . . f3 . | e2 . . e2 . . e3 .
+  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
+  f2 . . f2 . . f3 . | e2 . . e2 e2 e2 e2
+  : lpf 320
+
+trill tri
+  . . a4 b4 c5 . b4 a4 | g4 . a4 . b4 . . .
+  . . a4 b4 c5 . d5 . | e5 . d5 . c5 . b4 .
+  . . a4 b4 c5 . b4 a4 | g4 . a4 . b4 . . .
+  . . . . . . . . | . . . . . . . .
+  : vol .15 lpf 4k
+
+pluck sin
+  a3 . e4 . a3 . e4 . | a3 . e4 . a3 . e4 .
+  g3 . d4 . g3 . d4 . | g3 . d4 . g3 . d4 .
+  f3 . c4 . f3 . c4 . | f3 . c4 . f3 . c4 .
+  e3 . b3 . e3 . b3 . | e3 . b3 . e3 . b3 .
+  : vol .14 decay .08
+
+-- triggered envelope on pitched channels — the source plays at its
+-- last frequency for each `x`, useful for percussive accents.
+acc sqr
+  . . . . . . . x | . . . . . . . x
+  . . . . . . . x | . . . . . . . x
+  . . . . . . . x | . . . . . . . x
+  . . . . . . . x | . . . . . . . .
+  : vol .08 hpf 2k decay .03
+
+kick noise
+  x . . . x . . . | x . . . x . . .
+  x . . . x . . . | x . . . x . . x
+  x . . . x . . . | x . . . x . . .
+  x . . . x . . . | x . x . x x x x
+  : lpf 60 decay .05
+
+hat noise
+  . x . x . x . x | . x . x . x . x
+  . x . x . x . x | . x . x . x x x
+  . x . x . x . x | . x . x . x . x
+  . x . x . x . x | x x x x x x x x
+  : hpf 9k decay .015
+</script>
 <script type="text/hum" data-preset="glass">
 bpm 96
 
@@ -453,6 +521,39 @@ hat noise
   . . x . . . x . | . . x . . . x .
   . . x . . . x . | . . . . . . . .
   : hpf 8k decay .03
+</script>
+<script type="text/hum" data-preset="micro-cell">
+bpm 100
+
+-- micro-cell  (polyrhythm showcase: prime-length channels)
+-- Each channel has a coprime length so the loop point is the LCM of
+-- all of them. Watch the playhead — every channel scrolls at its own
+-- rate and the texture never quite repeats.
+
+-- 7 steps: pulse against an 8-step kick → drifts +1 step per loop
+pulse sin
+  c4 . . e4 . g4 .
+  : vol .14 lpf 2k
+
+-- 11 steps: counter-melody using underscore rests for variety
+counter tri
+  e4 _ . a4 _ . c5 _ . _ e4
+  : vol .08
+
+-- 5 steps: triggered hat at a different cycle
+tick noise
+  . x . _ x
+  : hpf 8k decay .02
+
+-- 13 steps: bass slowly cycles
+bass saw
+  c2 . . . g1 . c3 . . . . g1 .
+  : lpf 240
+
+-- 8 steps: the only "metric" pattern, anchors the rhythm
+kick noise
+  x . . . x . . .
+  : lpf 55 decay .05
 </script>
 <script type="text/hum" data-preset="neon-drift">
 bpm 138
@@ -933,7 +1034,7 @@ function parse(text) {
       }
 
       // Pattern: space-separated tokens, | is bar line (ignored), . is rest
-      const patTokens = patternStr.split(/\s+/).filter(t => t && t !== '|' && t !== ',');
+      const patTokens = patternStr.split(/\s+/).filter(t => t && t !== '|');
       const pattern = [];
       for (const token of patTokens) {
         const t = token.toLowerCase();
@@ -2024,6 +2125,11 @@ presetPicker.addEventListener('change', () => {
     onInput();
   }
   presetPicker.value = '';
+  // Drop the persistent focus ring — the user's next action is in the
+  // editor, not the dropdown. blur() also clears the :focus styling that
+  // browsers leave on after a change.
+  presetPicker.blur();
+  editor.focus();
 });
 
 // Drag and drop

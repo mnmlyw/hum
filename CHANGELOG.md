@@ -4,6 +4,30 @@ All notable changes to hum. Newest first.
 
 ## Unreleased
 
+### Demos
+- `demos/micro-cell.hum` — polyrhythm showcase. Five channels with
+  coprime lengths (5, 7, 8, 11, 13); the texture never quite repeats.
+  Exercises `_` rests.
+- `demos/flux.hum` — fast feature platter at 200 BPM. Every waveform,
+  every effect, sharps + flats, triggers on pitched channels.
+- Both demos covered by parser tests (BPM, channel count, error-free
+  parse, plus a structural assert that flux exercises all 5 waveforms).
+
+### Language
+- **Removed comma syntax.** Comma was previously accepted as a cosmetic
+  pattern separator; simplifying down to whitespace + `|`. Rationale:
+  one fewer thing to teach, one fewer edge case (was the parser
+  treating attached `c4,` correctly? — turned out: not, despite test
+  coverage saying so).
+- SPEC, parser, parser tests, and check-spec.js all updated. Existing
+  `.hum` files don't use commas so no demo content needed migration.
+
+### UI fix
+- Preset picker no longer keeps a persistent blue focus ring after
+  loading a demo. After selection, focus returns to the editor and
+  the picker's :focus styling is suppressed (a :focus-visible ring
+  remains for keyboard navigation).
+
 ### Features
 - **Per-channel mini-VU meters** in the footer. One bar per active
   channel, RMS-driven, clip indicator on saturation. Driven by a

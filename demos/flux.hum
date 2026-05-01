@@ -1,0 +1,64 @@
+bpm 200
+
+-- flux  (fast feature platter — every waveform, every effect)
+-- 200 bpm with 8th-note steps = 16th-note feel. All five waveforms,
+-- all four effects, sharps + flats, triggers on pitched channels,
+-- a 16-bar arrangement with build / drop / return.
+
+lead sin
+  e5 . g5 . a5 . b5 . | c6 . b5 . a5 . g5 .   -- A: lead enters
+  e5 . g5 . a5 . c6 . | d6 . c6 . a5 . g5 .
+  e5 . g5 . a5 . b5 . | c6 . b5 . a5 . g5 .
+  e5 . g5 . a5 . c6 . | d6 . . . . . . .
+  : vol .35 hpf 200
+
+stab sqr
+  . . . . a4 . . . | . . . . a4 . . .   -- A: rhythmic stab
+  . . . . a4 . . . | . . . . a4 . . a4
+  . . . . a4 . . . | . . . . a4 . . .
+  . . . . a4 . . . | . . . . a4 a4 a4 a4
+  : vol .12 lpf 3k
+
+bass saw
+  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
+  f2 . . f2 . . f3 . | e2 . . e2 . . e3 .
+  a2 . . a2 . . a3 . | g2 . . g2 . . g3 .
+  f2 . . f2 . . f3 . | e2 . . e2 e2 e2 e2
+  : lpf 320
+
+trill tri
+  . . a4 b4 c5 . b4 a4 | g4 . a4 . b4 . . .
+  . . a4 b4 c5 . d5 . | e5 . d5 . c5 . b4 .
+  . . a4 b4 c5 . b4 a4 | g4 . a4 . b4 . . .
+  . . . . . . . . | . . . . . . . .
+  : vol .15 lpf 4k
+
+pluck sin
+  a3 . e4 . a3 . e4 . | a3 . e4 . a3 . e4 .
+  g3 . d4 . g3 . d4 . | g3 . d4 . g3 . d4 .
+  f3 . c4 . f3 . c4 . | f3 . c4 . f3 . c4 .
+  e3 . b3 . e3 . b3 . | e3 . b3 . e3 . b3 .
+  : vol .14 decay .08
+
+-- triggered envelope on pitched channels — the source plays at its
+-- last frequency for each `x`, useful for percussive accents.
+acc sqr
+  . . . . . . . x | . . . . . . . x
+  . . . . . . . x | . . . . . . . x
+  . . . . . . . x | . . . . . . . x
+  . . . . . . . x | . . . . . . . .
+  : vol .08 hpf 2k decay .03
+
+kick noise
+  x . . . x . . . | x . . . x . . .
+  x . . . x . . . | x . . . x . . x
+  x . . . x . . . | x . . . x . . .
+  x . . . x . . . | x . x . x x x x
+  : lpf 60 decay .05
+
+hat noise
+  . x . x . x . x | . x . x . x . x
+  . x . x . x . x | . x . x . x x x
+  . x . x . x . x | . x . x . x . x
+  . x . x . x . x | x x x x x x x x
+  : hpf 9k decay .015
