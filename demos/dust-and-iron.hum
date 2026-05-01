@@ -30,10 +30,10 @@ gallop sin
   : vol .08 lpf 800
 
 drone sin
+  b2 b2 b2 b2 b2 b2 b2 b2     -- Em (5th)
   b2 b2 b2 b2 b2 b2 b2 b2
-  b2 b2 b2 b2 b2 b2 b2 b2
-  d3 d3 d3 d3 d3 d3 d3 d3
-  b2 b2 b2 b2 b2 b2 b2 b2
+  d3 d3 d3 d3 d3 d3 d3 d3     -- G (5th)
+  b2 b2 d3 d3 b2 b2 a2 a2     -- B→Em turnaround (matches bass)
   : vol .06 lpf 400
 
 kick noise
