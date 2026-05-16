@@ -108,7 +108,22 @@ four steps. accent + ghost on the same token is an error.
 modifiers also work on rests (`.*4` = four rests, useful shorthand) and
 triggers (`x!` = accented hit; `x*4` = sustained noise).
 
-## 9. polyrhythm — the trick
+## 9. chords
+
+```
+bpm 96
+pad sin [c4 e4 g4] . [d4 f4 a4] . : vol .4
+```
+
+square brackets pack multiple notes into one step. the channel plays them
+all at once, so one line can carry harmony without burning a second
+channel. modifiers attach outside the brackets — `[c4 e4 g4]*4` holds the
+chord across 4 slots, `[c4 e4 g4]!` accents it.
+
+chords are pitched-only (no `[...]` on a `noise` channel) and cap at 8
+notes each. single-note brackets `[c4]` just behave like a plain note.
+
+## 10. polyrhythm — the trick
 
 ```
 bpm 120
@@ -120,7 +135,7 @@ the lead has 7 steps, the kick has 8. they loop independently and never
 re-align. give two channels different lengths and you get polyrhythm
 for free. coprime lengths (5 vs 7, 7 vs 11) drift forever.
 
-## 10. live coding
+## 11. live coding
 
 playback runs while you type. edits land after a 300 ms pause:
 
@@ -133,7 +148,7 @@ playback runs while you type. edits land after a 300 ms pause:
 - press **Esc** to stop. press it again with **Cmd/Ctrl+Enter** to start
   fresh. there is no rewind — start always means step 0.
 
-## 11. all together
+## 12. all together
 
 a full mini-song using everything above:
 

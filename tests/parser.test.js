@@ -378,6 +378,127 @@ describe('parser: per-step modifiers', () => {
   });
 });
 
+// ── Parser: Chords (phase 3) ────────────────────────────────────────
+
+describe('parser: chords', () => {
+  it('parses a basic chord as a single step', () => {
+    const hum = parse('lead tri [c4 e4 g4]');
+    assert.equal(hum.errors.length, 0);
+    assert.equal(hum.channels[0].pattern.length, 1);
+    const s = hum.channels[0].pattern[0];
+    assert.equal(s.type, 'chord');
+    assert.equal(s.freqs.length, 3);
+    assert.deepEqual(s.names, ['c4', 'e4', 'g4']);
+  });
+
+  it('chord coexists with single notes and rests in pattern length', () => {
+    const hum = parse('lead tri c4 . [c4 e4 g4] .');
+    assert.equal(hum.errors.length, 0);
+    assert.equal(hum.channels[0].pattern.length, 4);
+    assert.equal(hum.channels[0].pattern[2].type, 'chord');
+  });
+
+  it('chord freqs match individual note frequencies', () => {
+    const hum = parse('lead tri [a4 e5]');
+    const s = hum.channels[0].pattern[0];
+    assert.equal(Math.round(s.freqs[0]), 440);
+    assert.ok(Math.abs(s.freqs[1] - NOTE_FREQ['e5']) < 0.001);
+  });
+
+  it('single-note chord [c4] collapses to a plain note', () => {
+    const hum = parse('lead tri [c4]');
+    assert.equal(hum.errors.length, 0);
+    const s = hum.channels[0].pattern[0];
+    assert.equal(s.type, 'note');
+    assert.equal(s.name, 'c4');
+  });
+
+  it('chord with hold (*N) emits 1 chord + N-1 sustain fillers', () => {
+    const hum = parse('lead tri [c4 e4 g4]*4');
+    assert.equal(hum.errors.length, 0);
+    assert.equal(hum.channels[0].pattern.length, 4);
+    assert.equal(hum.channels[0].pattern[0].type, 'chord');
+    assert.equal(hum.channels[0].pattern[0].hold, 4);
+    assert.equal(hum.channels[0].pattern[1].type, 'sustain');
+    assert.equal(hum.channels[0].pattern[3].type, 'sustain');
+  });
+
+  it('chord with accent sets vel > 1', () => {
+    const hum = parse('lead tri [c4 e4]!');
+    assert.equal(hum.errors.length, 0);
+    assert.ok(hum.channels[0].pattern[0].vel > 1);
+  });
+
+  it('chord with ghost sets vel < 1', () => {
+    const hum = parse('lead tri [c4 e4]?');
+    assert.equal(hum.errors.length, 0);
+    assert.ok(hum.channels[0].pattern[0].vel < 1);
+  });
+
+  it('chord modifiers stack in any order', () => {
+    for (const text of ['lead tri [c4 e4]!*4', 'lead tri [c4 e4]*4!']) {
+      const hum = parse(text);
+      assert.equal(hum.errors.length, 0, `errors for: ${text}`);
+      const s = hum.channels[0].pattern[0];
+      assert.equal(s.type, 'chord');
+      assert.equal(s.hold, 4);
+      assert.ok(s.vel > 1);
+    }
+  });
+
+  it('tolerates whitespace padding inside brackets', () => {
+    const hum = parse('lead tri [ c4   e4  g4 ]');
+    assert.equal(hum.errors.length, 0);
+    assert.equal(hum.channels[0].pattern[0].freqs.length, 3);
+  });
+
+  it('sharps and flats inside chord', () => {
+    const hum = parse('lead tri [c#4 eb4 g4]');
+    assert.equal(hum.errors.length, 0);
+    assert.equal(hum.channels[0].pattern[0].freqs.length, 3);
+  });
+
+  it('error: unclosed bracket', () => {
+    const hum = parse('lead tri [c4 e4');
+    assert.ok(hum.errors.some(e => /unclosed/.test(e.message)));
+  });
+
+  it('error: empty chord []', () => {
+    const hum = parse('lead tri []');
+    assert.ok(hum.errors.some(e => /empty chord/.test(e.message)));
+  });
+
+  it('error: unknown note inside chord', () => {
+    const hum = parse('lead tri [c4 z9 g4]');
+    assert.ok(hum.errors.some(e => /unknown note in chord/.test(e.message)));
+  });
+
+  it('error: chord on noise channel', () => {
+    const hum = parse('kick noise [c4 e4]');
+    assert.ok(hum.errors.some(e => /noise/.test(e.message)));
+  });
+
+  it('error: chord exceeding max notes', () => {
+    const hum = parse('lead tri [c4 d4 e4 f4 g4 a4 b4 c5 d5]');
+    assert.ok(hum.errors.some(e => /exceeds/.test(e.message)));
+  });
+
+  it('chord followed by note advances step counter correctly', () => {
+    const hum = parse('lead tri [c4 e4]*2 g4');
+    // chord(hold=2) + sustain + note = 3 slots total
+    assert.equal(hum.channels[0].pattern.length, 3);
+    assert.equal(hum.channels[0].pattern[0].type, 'chord');
+    assert.equal(hum.channels[0].pattern[1].type, 'sustain');
+    assert.equal(hum.channels[0].pattern[2].type, 'note');
+  });
+
+  it('chord error falls back to one rest slot', () => {
+    const hum = parse('lead tri c4 [bad e4] g4');
+    assert.equal(hum.channels[0].pattern.length, 3);
+    assert.equal(hum.channels[0].pattern[1].type, 'rest');
+  });
+});
+
 // ── Parser: Effects ─────────────────────────────────────────────────
 
 describe('parser: effects', () => {

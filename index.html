@@ -81,7 +81,8 @@ html, body {
 #highlight .pt.playing { background: var(--cyan); border-radius: 2px; }
 #highlight .pt.playing .nt,
 #highlight .pt.playing .tr,
-#highlight .pt.playing .md { color: var(--bg); opacity: 1; }
+#highlight .pt.playing .md,
+#highlight .pt.playing .bl { color: var(--bg); opacity: 1; }
 #highlight .pt.playing:has(.rs) { background: none; }
 #highlight .pt.playing .rs { opacity: 0.7; }
 
@@ -444,93 +445,33 @@ bpm 96
 
 -- glass
 lead tri
-  . . f#4 . a4 . c#5 . | d5 . . . c#5 . a4 .   -- A: verse
-  . . d4 . f#4 . a4 .  | b4 . . . a4 . . .
-  . . b4 . d5 . f#5 .  | e5 . . . d5 . b4 .
-  . . c#5 . e5 . . .   | d5 . c#5 . a4 . . .
-  . . f#4 . a4 . d5 .  | e5 . . . d5 . a4 .   -- A': variation
-  . . d4 . f#4 . b4 .  | c#5 . . . b4 . . .
-  . . f#4 . a4 . c#5 . | d5 . . . . . . .     -- B: open
-  . . . . . . . .      | . . . . . . . .
-  . . a4 . d5 . f#5 .  | g5 . . . f#5 . d5 .  -- C: climax
-  . . f#5 . e5 . d5 .  | c#5 . . . a4 . . .
-  . . b4 . d5 . f#5 .  | e5 . . . d5 . b4 .   -- A: return
-  . . c#5 . e5 . . .   | d5 . . . . . . .
+  . . f#4 . a4 . c#5 . | d5 . . . c#5 . a4 . | . . d4 . f#4 . a4 . | b4 . . . a4 . . . | . . b4 . d5 . f#5 . | e5 . . . d5 . b4 . | . . c#5 . e5 . . . | d5 . c#5 . a4 . . .   -- A: verse
+  . . f#4 . a4 . d5 . | e5 . . . d5 . a4 . | . . d4 . f#4 . b4 . | c#5 . . . b4 . . . | . . f#4 . a4 . c#5 . | d5 . . . . . . . | . . . . . . . . | . . . . . . . .             -- A' + B: open
+  . . a4 . d5 . f#5 . | g5 . . . f#5 . d5 . | . . f#5 . e5 . d5 . | c#5 . . . a4 . . . | . . b4 . d5 . f#5 . | e5 . . . d5 . b4 . | . . c#5 . e5 . . . | d5 . . . . . . .       -- C: climax + A: return
   : vol .5
-
 arp sin
-  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4  -- Dmaj7
-  b2 d3 f#3 a3 f#3 d3 f#3 a3  | b2 d3 f#3 a3 f#3 d3 f#3 a3   -- Bm7
-  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4  -- Dmaj7
-  b2 d3 f#3 a3 f#3 d3 f#3 a3  | b2 d3 f#3 a3 f#3 d3 f#3 a3   -- Bm7
-  d4 f#4 a4 c#5 a4 f#4 a4 c#5 | d4 f#4 a4 c#5 a4 f#4 a4 c#5  -- Dmaj7 (oct up: lift)
-  c#5 a4 f#4 d4 c#4 a3 f#3 d3 | c#5 a4 f#4 d4 c#4 a3 f#3 d3  --        (cascade fall)
-  g3 b3 d4 f#4 d4 b3 d4 f#4   | g3 b3 d4 f#4 d4 b3 d4 f#4   -- Gmaj7 B
-  g3 b3 d4 g4 d4 b3 g3 b3     | g3 b3 d4 g4 d4 b3 g3 b3
-  e3 g#3 b3 e4 b3 g#3 b3 e4   | e3 g#3 b3 e4 b3 g#3 b3 e4   -- E  C
-  a3 c#4 e4 a4 e4 c#4 e4 a4   | a3 c#4 e4 a4 e4 c#4 e4 a4   -- A
-  g3 b3 d4 f#4 d4 b3 d4 f#4   | g3 b3 d4 f#4 d4 b3 d4 f#4   -- Gmaj7
-  a3 c#4 e4 a4 e4 c#4 a3 e3   | a3 c#4 e4 a4 e4 c#4 a3 e3   -- A (fall)
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4 | b2 d3 f#3 a3 f#3 d3 f#3 a3 | b2 d3 f#3 a3 f#3 d3 f#3 a3   -- Dmaj7  Bm7
+  d3 f#3 a3 c#4 a3 f#3 a3 c#4 | d3 f#3 a3 c#4 a3 f#3 a3 c#4 | b2 d3 f#3 a3 f#3 d3 f#3 a3 | b2 d3 f#3 a3 f#3 d3 f#3 a3   -- Dmaj7  Bm7 (rep)
+  d4 f#4 a4 c#5 a4 f#4 a4 c#5 | d4 f#4 a4 c#5 a4 f#4 a4 c#5 | c#5 a4 f#4 d4 c#4 a3 f#3 d3 | c#5 a4 f#4 d4 c#4 a3 f#3 d3   -- D oct up + cascade fall
+  g3 b3 d4 f#4 d4 b3 d4 f#4 | g3 b3 d4 f#4 d4 b3 d4 f#4 | g3 b3 d4 g4 d4 b3 g3 b3 | g3 b3 d4 g4 d4 b3 g3 b3   -- Gmaj7  Gmaj7-var
+  e3 g#3 b3 e4 b3 g#3 b3 e4 | e3 g#3 b3 e4 b3 g#3 b3 e4 | a3 c#4 e4 a4 e4 c#4 e4 a4 | a3 c#4 e4 a4 e4 c#4 e4 a4   -- E  A
+  g3 b3 d4 f#4 d4 b3 d4 f#4 | g3 b3 d4 f#4 d4 b3 d4 f#4 | a3 c#4 e4 a4 e4 c#4 a3 e3 | a3 c#4 e4 a4 e4 c#4 a3 e3   -- Gmaj7  A (fall)
   : vol .12 lpf 2k
-
-pad sin
-  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
-  b2 b2 b2 b2 b2 b2 b2 b2 | b2 b2 b2 b2 b2 b2 b2 b2
-  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
-  b2 b2 b2 b2 b2 b2 b2 b2 | b2 b2 b2 b2 b2 b2 b2 b2
-  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
-  d3 d3 d3 d3 d3 d3 d3 d3 | d3 d3 d3 d3 d3 d3 d3 d3
-  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3  -- B
-  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3
-  e3 e3 e3 e3 e3 e3 e3 e3 | e3 e3 e3 e3 e3 e3 e3 e3  -- C
-  a3 a3 a3 a3 a3 a3 a3 a3 | a3 a3 a3 a3 a3 a3 a3 a3
-  g3 g3 g3 g3 g3 g3 g3 g3 | g3 g3 g3 g3 g3 g3 g3 g3
-  a3 a3 a3 a3 a3 a3 a3 a3 | a3 a3 a3 a3 a3 a3 a3 a3
-  : vol .08 lpf 600
-
+pad sin   d3*16 b2*16 d3*16 b2*16 d3*16 d3*16 g3*16 g3*16 e3*16 a3*16 g3*16 a3*16   : vol .08 lpf 600
 bass saw
-  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .  -- Dmaj7
-  b1 . . b1 . . b2 . | b1 . . b1 . . b2 .  -- Bm7
-  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .
-  b1 . . b1 . . b2 . | b1 . . b1 . . b2 .
-  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .  -- A'
-  d2 . . d2 . . d3 . | d2 . . d2 . . d3 .
-  g2 . . g2 . . g3 . | g2 . . g2 . . g3 .  -- B
-  g2 . . . . . . .   | . . . . . . . .
-  e2 . . e2 . . e3 . | a2 . . a2 . . a3 .  -- C
-  a2 . . a2 . . a3 . | a2 . . a2 . . a3 .
-  g2 . . g2 . . g3 . | g2 . . g2 . . g3 .
-  a2 . . a2 . . a3 . | a2 . . a2 . . e2 .
+  d2 . . d2 . . d3 . | d2 . . d2 . . d3 . | b1 . . b1 . . b2 . | b1 . . b1 . . b2 . | d2 . . d2 . . d3 . | d2 . . d2 . . d3 . | b1 . . b1 . . b2 . | b1 . . b1 . . b2 .   -- D  B  D  B
+  d2 . . d2 . . d3 . | d2 . . d2 . . d3 . | d2 . . d2 . . d3 . | d2 . . d2 . . d3 . | g2 . . g2 . . g3 . | g2 . . g2 . . g3 . | g2 . . . . . . . | . . . . . . . .   -- A'  B
+  e2 . . e2 . . e3 . | a2 . . a2 . . a3 . | a2 . . a2 . . a3 . | a2 . . a2 . . a3 . | g2 . . g2 . . g3 . | g2 . . g2 . . g3 . | a2 . . a2 . . a3 . | a2 . . a2 . . e2 .   -- C
   : lpf 200
-
 kick noise
-  x . . . . . x . | . . . . x . . .  -- A
-  x . . . . . x . | . . . . x . . .
-  x . . . . . x . | . . . . x . . .
-  x . . . . . x . | . . . . x . . .
-  x . . . . . x . | . . . . x . . .  -- A'
-  x . . . . . x . | . . . . x . . .
-  x . . . . . . . | . . . . . . . .  -- B
-  . . . . . . . . | . . . . . . . .
-  x . . . . . x . | x . . . . . x .  -- C
-  x . . . . . x . | . . x . . . x .
-  x . . . . . x . | . . . . x . . .
-  x . . . . . x . | . . . . . . . .
+  x . . . . . x . | . . . . x . . . | x . . . . . x . | . . . . x . . . | x . . . . . x . | . . . . x . . . | x . . . . . x . | . . . . x . . .   -- A
+  x . . . . . x . | . . . . x . . . | x . . . . . x . | . . . . x . . . | x . . . . . . . | . . . . . . . . | . . . . . . . . | . . . . . . . .   -- A'  B
+  x . . . . . x . | x . . . . . x . | x . . . . . x . | . . x . . . x . | x . . . . . x . | . . . . x . . . | x . . . . . x . | . . . . . . . .   -- C
   : lpf 50 decay .06
-
 hat noise
-  . . x . . . x . | . . x . . . x .  -- A
-  . . x . . . x . | . . x . . . x .
-  . . x . . . x . | . . x . . . x .
-  . . x . . . x . | . . x . . x x .
-  . . x . . . x . | . . x . . . x .  -- A'
-  . . x . . x x . | . . x . . . x .
-  . . x . . . . . | . . . . . . . .  -- B
-  . . . . . . . . | . . . . . . . .
-  . . x . . x . . | . . x . . x . .  -- C
-  . . x . . x . . | . x x . . . x .
-  . . x . . . x . | . . x . . . x .
-  . . x . . . x . | . . . . . . . .
+  . . x . . . x . | . . x . . . x . | . . x . . . x . | . . x . . . x . | . . x . . . x . | . . x . . . x . | . . x . . . x . | . . x . . x x .   -- A
+  . . x . . . x . | . . x . . x x . | . . x . . . . . | . . . . . . . . | . . . . . . . . | . . . . . . . . | . . . . . . . . | . . . . . . . .   -- A'  B
+  . . x . . x . . | . . x . . x . . | . . x . . x . . | . x x . . . x . | . . x . . . x . | . . x . . . x . | . . x . . . x . | . . . . . . . .   -- C
   : hpf 8k decay .03
 </script>
 <script type="text/hum" data-preset="micro-cell">
@@ -1046,11 +987,17 @@ const Step = {
   rest:    () => ({ type: 'rest' }),
   trigger: (vel = 1) => ({ type: 'trigger', vel }),
   note:    (freq, name, vel = 1, hold = 1) => ({ type: 'note', freq, name, vel, hold }),
+  // Polyphonic step: N simultaneous frequencies on a pitched channel. Voices
+  // 0..N-1 of the channel's voice pool play one note each, summed into the
+  // shared envelope so accent/hold/decay apply to the chord as a whole.
+  chord:   (freqs, names, vel = 1, hold = 1) => ({ type: 'chord', freqs, names, vel, hold }),
   // Filler step that occupies one slot in a held note's range. The scheduler
   // short-circuits on sustain — the trigger step's envelope is already
   // scheduled for the full hold duration.
   sustain: () => ({ type: 'sustain' })
 };
+
+const MAX_CHORD_NOTES = 8;
 
 // Per-step modifier velocities. Default = 1.0 (current behavior, fully
 // backward-compatible). Accent peaks above 1.0; the master compressor
@@ -1068,6 +1015,32 @@ function parseNum(s) {
 }
 
 const EFFECT_NAMES = new Set(['lpf','hpf','decay','vol']);
+
+// Bracket-aware tokenizer. Splits on whitespace except inside `[...]` which
+// is emitted as a single token (modifiers immediately after `]` ride along,
+// so `[c4 e4]*4!` is one token). Bar lines `|` are filtered. Used by both
+// the parser and the syntax highlighter so they stay in lockstep.
+function tokenizePattern(s) {
+  const out = [];
+  let i = 0;
+  while (i < s.length) {
+    while (i < s.length && /\s/.test(s[i])) i++;
+    if (i >= s.length) break;
+    const start = i;
+    if (s[i] === '[') {
+      i++;
+      while (i < s.length && s[i] !== ']') i++;
+      if (i < s.length) i++; // consume ]
+      while (i < s.length && (s[i] === '!' || s[i] === '?' || s[i] === '*' || /\d/.test(s[i]))) i++;
+      out.push(s.slice(start, i));
+    } else {
+      while (i < s.length && !/\s/.test(s[i]) && s[i] !== '[') i++;
+      const tok = s.slice(start, i);
+      if (tok && tok !== '|') out.push(tok);
+    }
+  }
+  return out;
+}
 
 function parse(text) {
   const result = { bpm: DEFAULT_BPM, channels: [], errors: [] };
@@ -1137,18 +1110,36 @@ function parse(text) {
       }
 
       // Pattern: space-separated tokens, | is bar line (ignored).
-      // Each token is `<base><mod>*` where base is a note/rest/trigger and
-      // mod is one of `*N` (hold), `!` (accent), `?` (ghost). Mods may stack
-      // in any order but accent+ghost is mutually exclusive and any single
-      // mod can appear at most once. A held base consumes N step slots — it
-      // emits the trigger step plus N-1 `Step.sustain()` filler entries so
-      // the scheduler can advance one slot per pattern position.
-      const patTokens = patternStr.split(/\s+/).filter(t => t && t !== '|');
+      // Each token is `<base><mod>*` where base is a note/rest/trigger or a
+      // `[c4 e4 g4]` chord group, and mod is one of `*N` (hold), `!` (accent),
+      // `?` (ghost). Mods may stack in any order but accent+ghost is mutually
+      // exclusive and any single mod can appear at most once. A held base
+      // consumes N step slots — it emits the trigger step plus N-1
+      // `Step.sustain()` filler entries so the scheduler can advance one slot
+      // per pattern position.
+      const patTokens = tokenizePattern(patternStr);
       const pattern = [];
       const MOD_RE = /(\*\d+|!|\?)/g;
       for (const token of patTokens) {
         const lc = token.toLowerCase();
-        const parts = lc.split(MOD_RE).filter(Boolean);
+
+        // Chord group: `[<notes>]<mods>`. Split off the bracket payload so
+        // modifier parsing below sees a uniform base+mods shape regardless
+        // of whether the base is a single note or a chord.
+        let chordNotes = null;
+        let baseForMods = lc;
+        if (lc.startsWith('[')) {
+          const close = lc.indexOf(']');
+          if (close === -1) {
+            result.errors.push({ line: i + 1, message: `unclosed chord bracket in '${token}'` });
+            pattern.push(Step.rest());
+            continue;
+          }
+          chordNotes = lc.slice(1, close).trim().split(/\s+/).filter(Boolean);
+          baseForMods = '[]' + lc.slice(close + 1);
+        }
+
+        const parts = baseForMods.split(MOD_RE).filter(Boolean);
         const base = parts[0];
         const mods = parts.slice(1);
 
@@ -1186,7 +1177,47 @@ function parse(text) {
         }
 
         // Emit the primary step + sustain fillers for any held duration.
-        if (base === '.' || base === '_') {
+        if (chordNotes !== null) {
+          // Chord: validate names + waveform, then emit a single chord step.
+          // Single-note chords (`[c4]`) collapse to a plain note so we don't
+          // burn an extra voice on something the scheduler can handle with one.
+          if (chordNotes.length === 0) {
+            result.errors.push({ line: i + 1, message: `empty chord '${token}'` });
+            pattern.push(Step.rest());
+            continue;
+          }
+          if (chordNotes.length > MAX_CHORD_NOTES) {
+            result.errors.push({ line: i + 1, message: `chord exceeds ${MAX_CHORD_NOTES} notes: '${token}'` });
+            pattern.push(Step.rest());
+            continue;
+          }
+          if (waveform === 'noise') {
+            result.errors.push({ line: i + 1, message: `chord not allowed on noise channel: '${token}'` });
+            pattern.push(Step.rest());
+            continue;
+          }
+          const freqs = [];
+          let chordErr = null;
+          for (const n of chordNotes) {
+            const f = NOTE_FREQ[n];
+            if (f === undefined) {
+              chordErr = `unknown note in chord '${token}': ${n}`;
+              break;
+            }
+            freqs.push(f);
+          }
+          if (chordErr) {
+            result.errors.push({ line: i + 1, message: chordErr });
+            pattern.push(Step.rest());
+            continue;
+          }
+          if (freqs.length === 1) {
+            pattern.push(Step.note(freqs[0], chordNotes[0], vel, hold));
+          } else {
+            pattern.push(Step.chord(freqs, chordNotes, vel, hold));
+          }
+          for (let k = 1; k < hold; k++) pattern.push(Step.sustain());
+        } else if (base === '.' || base === '_') {
           // Rests are silent so accent/ghost are no-ops; hold = N rests.
           for (let k = 0; k < hold; k++) pattern.push(Step.rest());
         } else if (base === 'x') {
@@ -1317,6 +1348,17 @@ function chain(...nodes) {
   for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1]);
 }
 
+// Greatest polyphony any chord step in the pattern requires. Drives initial
+// voice allocation; ensureVoices() grows the pool live if the pattern is
+// edited to need more.
+function chordMaxPoly(pattern) {
+  let max = 1;
+  for (const s of pattern) {
+    if (s.type === 'chord' && s.freqs.length > max) max = s.freqs.length;
+  }
+  return max;
+}
+
 function createChannelNode(ch, registryKey) {
   const source = createSource(ch.waveform);
   const sourceGain = makeGain(1);
@@ -1333,19 +1375,49 @@ function createChannelNode(ch, registryKey) {
   chain(source, sourceGain, envelopeGain, filterHPF, filterLPF, volumeGain, meter, analyserNode);
   source.start();
 
-  return {
+  // Voice 0 reuses source/sourceGain so the documented signal chain stays
+  // intact. Extra voices (allocated only for chord patterns) sum into
+  // envelopeGain in parallel — each chord note gets its own oscillator with
+  // its own gain that the scheduler dials between 0 and 1/√N.
+  const voices = [{ source, sourceGain }];
+  const node = {
     source, sourceGain, envelopeGain,
     filterLPF, filterHPF, volumeGain, meter,
+    voices,
     channel: ch, registryKey,
     notBefore: 0,      // scheduler skips steps where t < notBefore
     stoppedAt: Infinity // scheduler skips steps where t >= stoppedAt
   };
+  // Noise can't pitch-vary so chord steps are rejected at parse time;
+  // never grow the pool beyond voice 0 for noise channels.
+  if (ch.waveform !== 'noise') {
+    ensureVoices(node, chordMaxPoly(ch.pattern));
+  }
+  return node;
+}
+
+// Grow node.voices up to `count` voices. Lazy so pattern edits that add a
+// bigger chord don't require rebuilding the channel.
+function ensureVoices(node, count) {
+  if (node.channel.waveform === 'noise') return;
+  while (node.voices.length < count) {
+    const src = createSource(node.channel.waveform);
+    const g = makeGain(0);
+    src.connect(g);
+    g.connect(node.envelopeGain);
+    src.start();
+    node.voices.push({ source: src, sourceGain: g });
+  }
 }
 
 function disconnectNode(node) {
-  try { node.source.stop(); } catch (e) {}
-  try { node.source.disconnect(); } catch (e) {}
-  try { node.sourceGain.disconnect(); } catch (e) {}
+  // Voice 0 = node.source/node.sourceGain; voices 1+ exist only if a chord
+  // step ever needed them. Loop over the pool so neither path is forgotten.
+  for (const v of node.voices || [{ source: node.source, sourceGain: node.sourceGain }]) {
+    try { v.source.stop(); } catch (e) {}
+    try { v.source.disconnect(); } catch (e) {}
+    try { v.sourceGain.disconnect(); } catch (e) {}
+  }
   try { node.meter.disconnect(); } catch (e) {}
   try { node.envelopeGain.disconnect(); } catch (e) {}
   try { node.filterLPF.disconnect(); } catch (e) {}
@@ -1403,15 +1475,52 @@ function teardownGraph() {
 
 // ── Scheduler ───────────────────────────────────────────────────────
 
-// Cancel queued envelope and frequency events on a channel node from time t onward.
+// Cancel queued envelope, voice-gain and frequency events on a channel node
+// from time t onward. Touches every voice so a boundary rewind during live
+// editing doesn't leave a chord half-routed.
 function cancelChannelEventsFrom(node, t) {
   try { node.envelopeGain.gain.cancelScheduledValues(t); } catch (e) {}
-  if (node.source && node.source.frequency) {
-    try { node.source.frequency.cancelScheduledValues(t); } catch (e) {}
+  for (const v of node.voices) {
+    if (v.source && v.source.frequency) {
+      try { v.source.frequency.cancelScheduledValues(t); } catch (e) {}
+    }
+    try { v.sourceGain.gain.cancelScheduledValues(t); } catch (e) {}
   }
 }
 
-// Write one pattern step's envelope (and frequency for pitched notes) at time t.
+// Route active voices for one step: set per-voice frequencies and gains so
+// that exactly N voices are at the equal-power level 1/√N and the rest are
+// muted. Returns immediately for noise (no voices to route) and for triggers
+// (reuses voice 0's current frequency, mutes any chord voices left over).
+function routeVoices(node, s, t) {
+  const ch = node.channel;
+  if (ch.waveform === 'noise') return;
+  const tc = 0.005;
+  let freqs = null;
+  if (s.type === 'note') {
+    freqs = [s.freq];
+  } else if (s.type === 'chord') {
+    ensureVoices(node, s.freqs.length);
+    freqs = s.freqs;
+  }
+  // Triggers fall through with freqs === null: just mute non-primary voices.
+  const N = freqs ? freqs.length : 1;
+  const lvl = 1 / Math.sqrt(N);
+  for (let v = 0; v < node.voices.length; v++) {
+    const voice = node.voices[v];
+    if (v < N) {
+      if (freqs && voice.source.frequency) {
+        try { voice.source.frequency.setValueAtTime(freqs[v], t); } catch (e) {}
+      }
+      try { voice.sourceGain.gain.setTargetAtTime(lvl, t, tc); } catch (e) {}
+    } else {
+      try { voice.sourceGain.gain.setTargetAtTime(0, t, tc); } catch (e) {}
+    }
+  }
+}
+
+// Write one pattern step's envelope (and per-voice frequency/gain for pitched
+// notes/chords) at time t.
 function scheduleStep(node, step, t, dur) {
   const ch = node.channel;
   const s = ch.pattern[step % ch.pattern.length];
@@ -1425,9 +1534,7 @@ function scheduleStep(node, step, t, dur) {
     g.setValueAtTime(0, t);
     return;
   }
-  if (s.type === 'note' && ch.waveform !== 'noise') {
-    node.source.frequency.setValueAtTime(s.freq, t);
-  }
+  routeVoices(node, s, t);
   // Velocity scales the envelope peak. Default = 1.0 (backward-compatible),
   // accent = 1.5 (compressor absorbs headroom), ghost = 0.4.
   const peak = s.vel ?? 1;
@@ -1708,24 +1815,47 @@ function highlightTokens(code, comment, chIdx, stepCounter) {
   let out = '';
   const ch = chIdx !== undefined ? chIdx : null;
 
-  const patTokens = patPart.split(/(\s+)/);
-  for (const ct of patTokens) {
-    if (ct === '') continue;
-    if (ct.match(/^\s+$/)) { out += esc(ct); continue; }
-    const low = ct.toLowerCase();
-    if (low === '|' || low === ',') { out += span('bl', ct); continue; }
+  // Bracket-aware walker — kept in lockstep with tokenizePattern() in the
+  // parser. Yields whitespace, chord tokens (`[...]<mods>`), and regular
+  // tokens. Whitespace is preserved verbatim so the highlight overlay aligns
+  // with the textarea char-for-char.
+  const chunks = [];
+  {
+    let i = 0;
+    while (i < patPart.length) {
+      if (/\s/.test(patPart[i])) {
+        const start = i;
+        while (i < patPart.length && /\s/.test(patPart[i])) i++;
+        chunks.push({ kind: 'ws', text: patPart.slice(start, i) });
+      } else if (patPart[i] === '[') {
+        const start = i;
+        i++;
+        while (i < patPart.length && patPart[i] !== ']') i++;
+        if (i < patPart.length) i++;
+        while (i < patPart.length && (patPart[i] === '!' || patPart[i] === '?' || patPart[i] === '*' || /\d/.test(patPart[i]))) i++;
+        chunks.push({ kind: 'chord', text: patPart.slice(start, i) });
+      } else {
+        const start = i;
+        while (i < patPart.length && !/\s/.test(patPart[i]) && patPart[i] !== '[') i++;
+        chunks.push({ kind: 'tok', text: patPart.slice(start, i) });
+      }
+    }
+  }
 
-    // Decompose into base + modifiers (mirrors the parser).
+  for (const chunk of chunks) {
+    if (chunk.kind === 'ws') { out += esc(chunk.text); continue; }
+    const ct = chunk.text;
+    const low = ct.toLowerCase();
+    if (chunk.kind === 'tok' && (low === '|' || low === ',')) {
+      out += span('bl', ct); continue;
+    }
+
+    // Decompose into base + modifiers (mirrors the parser). For chords the
+    // whole bracket payload — spaces and all — is the base; the split below
+    // peels off any `*N`/`!`/`?` that trail after `]`.
     const parts = low.split(/(\*\d+|!|\?)/).filter(Boolean);
     const base = parts[0];
     const modParts = parts.slice(1);
-
-    // Pick the base color class.
-    let baseCls;
-    if (base === '.' || base === '_') baseCls = 'rs';
-    else if (base === 'x') baseCls = 'tr';
-    else if (NOTE_FREQ[base] !== undefined) baseCls = 'nt';
-    else baseCls = 'er';
 
     // Validate modifiers exactly the way the parser does so the playhead
     // step counter mirrors the parsed AST. Invalid modifier set → mods get
@@ -1754,7 +1884,42 @@ function highlightTokens(code, comment, chIdx, stepCounter) {
     const baseText = ct.slice(0, base.length);
     const modsText = ct.slice(base.length);
 
-    let inner = `<span class="${baseCls}">${esc(baseText)}</span>`;
+    // Render the base. Chords get bracket-dim + per-note coloring; everything
+    // else stays the single-class span the original highlighter produced.
+    let inner = '';
+    let baseValid = true;
+    if (chunk.kind === 'chord') {
+      // Chord base must be a closed `[...]` containing ≥1 valid note.
+      if (!base.endsWith(']') || base.length < 2) {
+        baseValid = false;
+        inner = `<span class="er">${esc(baseText)}</span>`;
+      } else {
+        const payload = baseText.slice(1, -1);
+        const noteParts = payload.split(/(\s+)/);
+        const noteList = noteParts.filter(p => p && !/^\s+$/.test(p));
+        if (noteList.length === 0) baseValid = false;
+        else for (const n of noteList) {
+          if (NOTE_FREQ[n.toLowerCase()] === undefined) { baseValid = false; break; }
+        }
+        let chordInner = '<span class="bl">[</span>';
+        for (const p of noteParts) {
+          if (!p) continue;
+          if (/^\s+$/.test(p)) chordInner += esc(p);
+          else if (NOTE_FREQ[p.toLowerCase()] !== undefined) chordInner += `<span class="nt">${esc(p)}</span>`;
+          else chordInner += `<span class="er">${esc(p)}</span>`;
+        }
+        chordInner += '<span class="bl">]</span>';
+        inner = chordInner;
+      }
+    } else {
+      let baseCls;
+      if (base === '.' || base === '_') baseCls = 'rs';
+      else if (base === 'x') baseCls = 'tr';
+      else if (NOTE_FREQ[base] !== undefined) baseCls = 'nt';
+      else { baseCls = 'er'; baseValid = false; }
+      inner = `<span class="${baseCls}">${esc(baseText)}</span>`;
+    }
+
     if (modsText) {
       inner += `<span class="${modsValid ? 'md' : 'er'}">${esc(modsText)}</span>`;
     }
@@ -1762,7 +1927,7 @@ function highlightTokens(code, comment, chIdx, stepCounter) {
     // Wrap as .pt for playhead targeting. data-h communicates the hold span
     // so updateHighlight can map every consumed slot back to this DOM span.
     const s = (stepCounter && ch !== null) ? stepCounter.n : null;
-    const slotCount = (modsValid && baseCls !== 'er') ? displayHold : 1;
+    const slotCount = (modsValid && baseValid) ? displayHold : 1;
     if (ch !== null && s !== null) {
       const h = slotCount > 1 ? ` data-h="${slotCount}"` : '';
       out += `<span class="pt" data-ch="${ch}" data-s="${s}"${h}>${inner}</span>`;
@@ -1989,7 +2154,11 @@ let lastParseKey = '';
 function humKey(hum) {
   return hum.bpm + '|' + hum.channels.map(c =>
     c.name + c.waveform +
-    c.pattern.map(s => s.type === 'note' ? s.freq : s.type).join(',') +
+    c.pattern.map(s => {
+      if (s.type === 'note') return s.freq;
+      if (s.type === 'chord') return '[' + s.freqs.join('+') + ']';
+      return s.type;
+    }).join(',') +
     JSON.stringify(c.effects)
   ).join('|');
 }
@@ -2005,26 +2174,39 @@ function nextBoundary() {
 }
 
 function swapWaveform(node, newWaveform, applyAt) {
-  const newSource = createSource(newWaveform);
-  const newSrcGain = audioCtx.createGain();
-  newSrcGain.gain.setValueAtTime(0, audioCtx.currentTime);
-  newSource.connect(newSrcGain);
-  newSrcGain.connect(node.envelopeGain);
-  newSource.start(applyAt);
-
-  const oldSource = node.source;
-  const oldSrcGain = node.sourceGain;
-
-  // 5ms equal-power-ish crossfade at the boundary
+  // Swap every voice in the pool — voice 0 is the primary (also exposed as
+  // node.source/node.sourceGain) and 1+ are the extra chord voices. Each
+  // voice gets its own crossfade so a chord straddling the swap boundary
+  // doesn't click.
   const fade = 0.005;
-  oldSrcGain.gain.cancelScheduledValues(applyAt);
-  oldSrcGain.gain.setValueAtTime(1, applyAt);
-  oldSrcGain.gain.linearRampToValueAtTime(0, applyAt + fade);
-  newSrcGain.gain.setValueAtTime(0, applyAt);
-  newSrcGain.gain.linearRampToValueAtTime(1, applyAt + fade);
+  const oldVoices = node.voices;
+  const newVoices = [];
+  for (let v = 0; v < oldVoices.length; v++) {
+    const old = oldVoices[v];
+    const newSource = createSource(newWaveform);
+    const newSrcGain = audioCtx.createGain();
+    // Voice 0's primary gain stays at 1 and rides the envelope; voices 1+
+    // are chord slots that the scheduler dials between 0 and 1/√N.
+    const targetGain = (v === 0) ? 1 : 0;
+    newSrcGain.gain.setValueAtTime(0, audioCtx.currentTime);
+    newSource.connect(newSrcGain);
+    newSrcGain.connect(node.envelopeGain);
+    // Noise sources start immediately; oscillators can be deferred to applyAt.
+    // BufferSource.start with a future time still works, so this is consistent
+    // either way — kept aligned with the pre-chord behavior.
+    newSource.start(applyAt);
 
-  node.source = newSource;
-  node.sourceGain = newSrcGain;
+    old.sourceGain.gain.cancelScheduledValues(applyAt);
+    old.sourceGain.gain.setValueAtTime(v === 0 ? 1 : 0, applyAt);
+    old.sourceGain.gain.linearRampToValueAtTime(0, applyAt + fade);
+    newSrcGain.gain.setValueAtTime(0, applyAt);
+    newSrcGain.gain.linearRampToValueAtTime(targetGain, applyAt + fade);
+
+    newVoices.push({ source: newSource, sourceGain: newSrcGain });
+  }
+  node.voices = newVoices;
+  node.source = newVoices[0].source;
+  node.sourceGain = newVoices[0].sourceGain;
 
   // Bound the pending-cleanup queue. A user cycling waveforms faster than
   // ~210ms could otherwise pile up arbitrarily many oscillators awaiting
@@ -2040,9 +2222,11 @@ function swapWaveform(node, newWaveform, applyAt) {
   const entry = {
     timer: 0,
     cleanup() {
-      try { oldSource.stop(); } catch (e) {}
-      try { oldSource.disconnect(); } catch (e) {}
-      try { oldSrcGain.disconnect(); } catch (e) {}
+      for (const old of oldVoices) {
+        try { old.source.stop(); } catch (e) {}
+        try { old.source.disconnect(); } catch (e) {}
+        try { old.sourceGain.disconnect(); } catch (e) {}
+      }
     }
   };
   const delayMs = Math.max(0, (applyAt - audioCtx.currentTime) * 1000) + 60;

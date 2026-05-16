@@ -44,9 +44,20 @@ A hum is a sequence of lines. Each line is one of:
 - **note** — `c4`, `eb3`, `f#5` (letter + optional sharp/flat + octave 0-8)
 - **trigger** — `x` (envelope fires using the channel's most recent frequency; primarily for noise/percussive hits, but accepted on any waveform)
 - **rest** — `.` (also `_`)
+- **chord** — `[c4 e4 g4]` (2-8 notes played simultaneously on the same channel)
 - **bar line** — `|` (cosmetic, ignored by parser; e.g. `c4 | e4`)
 
 Each token is one step (unless held). A step is an 8th note. 8 steps = 1 bar of 4/4.
+
+#### Chords
+
+`[c4 e4 g4]` is one step that plays all three notes at once. The channel allocates one oscillator voice per chord note (lazily, capped at 8), all summed into the channel's shared envelope and effect chain — so accent, hold, decay, and filters apply to the chord as a whole.
+
+- Whitespace inside the brackets is free (`[ c4  e4 ]` is fine).
+- Single-note brackets (`[c4]`) parse as plain notes.
+- Chords are pitched-only; using `[...]` on a `noise` channel is an error.
+- Per-note modifiers inside the chord are not supported — modifiers attach to the chord as a whole (`[c4 e4 g4]!*4`).
+- Equal-power summation: each voice plays at `1/√N` so a chord doesn't louder-by-N than a single note.
 
 #### Per-step modifiers
 
@@ -93,7 +104,8 @@ Is equivalent to `lead tri c4 e4 g4 c5 g4 e4 c4 . : vol .5`. Comments are stripp
 ### Limits
 
 - 8 channels max
-- Monophonic per channel (chords require multiple channels)
+- One melodic line per channel — use `[c4 e4 g4]` chord steps for harmony within a channel
+- Chord polyphony cap: 8 notes per chord
 - Octave range: 0-8 (C0 ~16Hz to B8 ~7902Hz), A4 = 440Hz
 - Sharps (`c#4`) and flats (`eb4`, `bb3`)
 - No nesting, no expressions, no variables
@@ -104,6 +116,7 @@ Is equivalent to `lead tri c4 e4 g4 c5 g4 e4 c4 . : vol .5`. Comments are stripp
 - Web Audio API, single `AudioContext`
 - Per-channel signal chain: `source → sourceGain → envelopeGain → hpf → lpf → volumeGain → meter → analyser → compressor → destination` (filters are always present; `hpf` defaults to 0 Hz and `lpf` to 20 kHz when no effect is set; `meter` is a per-channel `AnalyserNode` driving the footer mini-VU bars)
 - Pitched waveforms: continuous `OscillatorNode`, frequency set per step
+- Polyphony: chord steps grow a per-channel pool of extra oscillators (voice 1+) that sum into `envelopeGain` in parallel with the primary `source`. Each voice plays at `1/√N` to keep chord loudness comparable to a single note. Non-chord steps mute voices 1+.
 - Noise: looped `AudioBufferSourceNode` (2s random buffer)
 - `DynamicsCompressorNode` on master bus prevents clipping
 - Short ramps and crossfades at gain transitions to suppress clicks: 5 ms equal-power crossfade on waveform swap, 10 ms `setTargetAtTime` ramps on effect-value changes, end-of-step linear fade to 0 over the last 10 ms of each non-decay note, 3 ms attack on the master `DynamicsCompressorNode`. Note onsets themselves are instantaneous (`setValueAtTime(1, t)`).

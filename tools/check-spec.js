@@ -143,6 +143,16 @@ const checks = [
       'scheduleStep must check for sustain steps and return early');
   }],
 
+  ['Chords: SPEC documents [c4 e4 g4] syntax + Step.chord factory exists', () => {
+    assert.match(spec, /\[c4 e4 g4\]/,
+      'SPEC must document the chord bracket syntax');
+    assert.match(spec, /chord/i, 'SPEC must mention chords');
+    assert.match(html, /chord:\s*\(freqs,\s*names/,
+      'Step.chord factory must exist');
+    assert.match(html, /type:\s*'chord'/,
+      "scheduler must dispatch on chord steps");
+  }],
+
 ];
 
 let failed = 0;

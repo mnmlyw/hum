@@ -97,6 +97,34 @@ test('held note (c4*4) keeps .playing across all 4 step durations', async ({ pag
   expect(maxRun).toBeGreaterThanOrEqual(3);
 });
 
+test('chord renders as one .pt span with bracketed notes inside', async ({ page }) => {
+  await applyEdit(page, 'bpm 120\npad sin c4 [c4 e4 g4] c4');
+  // Three pattern slots, three .pt spans (the chord is one span, not three).
+  const ptCount = await page.$$eval('.pt[data-ch="0"]', els => els.length);
+  expect(ptCount).toBe(3);
+  // The middle .pt span contains [, three notes, and ] as its text.
+  const chordText = await page.$eval(
+    '.pt[data-ch="0"][data-s="1"]',
+    el => el.textContent.replace(/\s+/g, ' ')
+  );
+  expect(chordText).toBe('[c4 e4 g4]');
+});
+
+test('chord with hold modifier sets data-h and advances step counter', async ({ page }) => {
+  await applyEdit(page, 'bpm 120\npad sin [c4 e4]*4 g4');
+  const heldHold = await page.$eval(
+    '.pt[data-ch="0"][data-s="0"]',
+    el => el.dataset.h
+  );
+  expect(heldHold).toBe('4');
+  // Following note is at slot 4 (chord trigger + 3 sustains).
+  const nextStart = await page.$eval(
+    '.pt[data-ch="0"][data-s="4"]',
+    el => el.textContent
+  );
+  expect(nextStart).toContain('g4');
+});
+
 test('modifier characters get the .md class', async ({ page }) => {
   await applyEdit(page, 'bpm 120\nlead sin c4*4 c4! c4?');
   const mds = await page.$$eval('.md', els => els.map(e => e.textContent));

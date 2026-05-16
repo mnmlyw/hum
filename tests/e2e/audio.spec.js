@@ -138,6 +138,41 @@ test('accent (!) is louder than ghost (?) on the same waveform', async ({ page }
   expect(meters.accent).toBeGreaterThan(meters.ghost * 1.5);
 });
 
+test('chord allocates a voice per note and routes them all audibly', async ({ page }) => {
+  // Single chord-only channel. After playback settles, the channel must own
+  // 3 voices and at least 2 of their sourceGain values must be non-zero.
+  await applyEdit(page, 'bpm 120\npad sin [c4 e4 g4] : vol .5');
+  await startPlayback(page);
+  await waitForPhaseDelta(page, 1.5);
+
+  const state = await page.evaluate(() => {
+    const node = window.__hum.channelNodesByName.get('pad');
+    return {
+      voiceCount: node.voices.length,
+      voiceGains: node.voices.map(v => v.sourceGain.gain.value),
+      voiceFreqs: node.voices.map(v => v.source.frequency ? v.source.frequency.value : null)
+    };
+  });
+  expect(state.voiceCount).toBe(3);
+  // After a chord step has fired, voices 0..2 should be at the active level (~0.577).
+  expect(state.voiceGains.filter(g => g > 0.2).length).toBe(3);
+  // Frequencies should be distinct (c4, e4, g4) — guard against the bug where
+  // every voice gets the same freq set on it.
+  const uniqFreqs = new Set(state.voiceFreqs.map(f => Math.round(f)));
+  expect(uniqFreqs.size).toBe(3);
+
+  const rms = await analyserRms(page, 250);
+  expect(rms).toBeGreaterThan(3);
+});
+
+test('chord on noise channel is rejected (parser error, no chord step emitted)', async ({ page }) => {
+  const result = await page.evaluate(() =>
+    window.__hum.parse('kick noise [c4 e4]'));
+  expect(result.errors.some(e => /noise/.test(e.message))).toBe(true);
+  // The bad chord falls back to a rest, so the pattern still has 1 step.
+  expect(result.channels[0].pattern[0].type).toBe('rest');
+});
+
 test('stopping playback silences the analyser within a beat', async ({ page }) => {
   await applyEdit(page, 'bpm 120\nbass saw c3 e3 g3 c4');
   await startPlayback(page);
