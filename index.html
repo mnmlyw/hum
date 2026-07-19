@@ -1045,10 +1045,16 @@ function tokenizePattern(s) {
 function parse(text) {
   const result = { bpm: DEFAULT_BPM, channels: [], errors: [] };
 
-  // Join continuation lines: indented lines append to the previous line
+  // Join continuation lines: indented lines append to the previous line.
+  // lineNumbers[i] tracks the 1-indexed raw source line that started joined
+  // entry i, so errors point at the line the user actually wrote instead of
+  // an index into the post-join array (which drifts once continuations have
+  // collapsed multiple source lines into one).
   const rawLines = text.split('\n');
   const lines = [];
-  for (const raw of rawLines) {
+  const lineNumbers = [];
+  for (let ri = 0; ri < rawLines.length; ri++) {
+    const raw = rawLines[ri];
     // Strip comments before joining so a comment on a continuation line
     // doesn't swallow subsequent continuations
     const stripped = raw.replace(/--.*$/, '');
@@ -1056,6 +1062,7 @@ function parse(text) {
       lines[lines.length - 1] += ' ' + stripped.trim();
     } else {
       lines.push(stripped);
+      lineNumbers.push(ri + 1);
     }
   }
 
@@ -1070,7 +1077,7 @@ function parse(text) {
       if (bpmMatch) {
         result.bpm = parseNum(bpmMatch[1]);
         if (result.bpm < 20 || result.bpm > 999) {
-          result.errors.push({ line: i + 1, message: 'bpm must be 20-999' });
+          result.errors.push({ line: lineNumbers[i], message: 'bpm must be 20-999' });
           result.bpm = Math.max(20, Math.min(999, result.bpm));
         }
         continue;
@@ -1084,13 +1091,13 @@ function parse(text) {
       if (!WAVEFORMS.includes(waveform)) {
         // Not a channel definition
         if (line.match(/^[a-zA-Z]/)) {
-          result.errors.push({ line: i + 1, message: `unknown waveform: ${tokens[1]}` });
+          result.errors.push({ line: lineNumbers[i], message: `unknown waveform: ${tokens[1]}` });
         }
         continue;
       }
 
       if (result.channels.length >= MAX_CHANNELS) {
-        result.errors.push({ line: i + 1, message: 'maximum 8 channels' });
+        result.errors.push({ line: lineNumbers[i], message: 'maximum 8 channels' });
         continue;
       }
 
@@ -1131,7 +1138,7 @@ function parse(text) {
         if (lc.startsWith('[')) {
           const close = lc.indexOf(']');
           if (close === -1) {
-            result.errors.push({ line: i + 1, message: `unclosed chord bracket in '${token}'` });
+            result.errors.push({ line: lineNumbers[i], message: `unclosed chord bracket in '${token}'` });
             pattern.push(Step.rest());
             continue;
           }
@@ -1171,28 +1178,38 @@ function parse(text) {
           }
         }
         if (modErr) {
-          result.errors.push({ line: i + 1, message: modErr });
+          result.errors.push({ line: lineNumbers[i], message: modErr });
           pattern.push(Step.rest());
           continue;
         }
 
         // Emit the primary step + sustain fillers for any held duration.
         if (chordNotes !== null) {
+          // base is reconstructed as '[]' + whatever trailed the closing `]`.
+          // Anything left over after MOD_RE consumed the recognized modifiers
+          // means unrecognized text rode along after the bracket (`[c4]5`,
+          // `[c4 e4]99`) — reject it instead of silently dropping it, matching
+          // the highlighter's `.er` treatment of the same input.
+          if (base !== '[]') {
+            result.errors.push({ line: lineNumbers[i], message: `unrecognized text after chord bracket in '${token}'` });
+            pattern.push(Step.rest());
+            continue;
+          }
           // Chord: validate names + waveform, then emit a single chord step.
           // Single-note chords (`[c4]`) collapse to a plain note so we don't
           // burn an extra voice on something the scheduler can handle with one.
           if (chordNotes.length === 0) {
-            result.errors.push({ line: i + 1, message: `empty chord '${token}'` });
+            result.errors.push({ line: lineNumbers[i], message: `empty chord '${token}'` });
             pattern.push(Step.rest());
             continue;
           }
           if (chordNotes.length > MAX_CHORD_NOTES) {
-            result.errors.push({ line: i + 1, message: `chord exceeds ${MAX_CHORD_NOTES} notes: '${token}'` });
+            result.errors.push({ line: lineNumbers[i], message: `chord exceeds ${MAX_CHORD_NOTES} notes: '${token}'` });
             pattern.push(Step.rest());
             continue;
           }
           if (waveform === 'noise') {
-            result.errors.push({ line: i + 1, message: `chord not allowed on noise channel: '${token}'` });
+            result.errors.push({ line: lineNumbers[i], message: `chord not allowed on noise channel: '${token}'` });
             pattern.push(Step.rest());
             continue;
           }
@@ -1207,7 +1224,7 @@ function parse(text) {
             freqs.push(f);
           }
           if (chordErr) {
-            result.errors.push({ line: i + 1, message: chordErr });
+            result.errors.push({ line: lineNumbers[i], message: chordErr });
             pattern.push(Step.rest());
             continue;
           }
@@ -1229,14 +1246,14 @@ function parse(text) {
             pattern.push(Step.note(freq, base, vel, hold));
             for (let k = 1; k < hold; k++) pattern.push(Step.sustain());
           } else {
-            result.errors.push({ line: i + 1, message: `unknown note: ${token}` });
+            result.errors.push({ line: lineNumbers[i], message: `unknown note: ${token}` });
             pattern.push(Step.rest());
           }
         }
       }
 
       if (pattern.length === 0) {
-        result.errors.push({ line: i + 1, message: 'empty pattern' });
+        result.errors.push({ line: lineNumbers[i], message: 'empty pattern' });
         continue;
       }
 
@@ -1248,7 +1265,7 @@ function parse(text) {
           const fx = fxTokens[j].toLowerCase();
           const val = parseNum(fxTokens[j + 1]);
           if (!EFFECT_NAMES.has(fx)) {
-            result.errors.push({ line: i + 1, message: `unknown effect: ${fx}` });
+            result.errors.push({ line: lineNumbers[i], message: `unknown effect: ${fx}` });
             continue;
           }
           // Number.isFinite rejects NaN, Infinity, and -Infinity alike.
@@ -1256,7 +1273,7 @@ function parse(text) {
           // from exponentialRampToValueAtTime / AudioParam assignment, which
           // leaks a worker listener on the half-started scheduler.
           if (!Number.isFinite(val)) {
-            result.errors.push({ line: i + 1, message: `invalid value for ${fx}` });
+            result.errors.push({ line: lineNumbers[i], message: `invalid value for ${fx}` });
             continue;
           }
           if (fx === 'lpf') effects.lpf = val;
@@ -1275,7 +1292,7 @@ function parse(text) {
       // a candidate can lose its slot to an empty pattern or the 8-channel cap.
       result.channels.push({ name, waveform, pattern, effects, headerLine: i });
     } catch (e) {
-      result.errors.push({ line: i + 1, message: e.message });
+      result.errors.push({ line: lineNumbers[i], message: e.message });
     }
   }
 

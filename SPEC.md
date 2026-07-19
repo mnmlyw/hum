@@ -171,9 +171,10 @@ next step boundary.
 
 ## Branches
 
-- `main` — stable; includes live-coding and mobile UI
-- `note-drag` — pitch shift by dragging notes
-- `bottom-bar-redesign` — floating translucent footer
+- `main` — stable; every shipped feature (live-coding, mobile UI, per-step
+  modifiers, chords, floating footer) lives here. Feature work happens on
+  short-lived branches that merge back and get deleted — there's no
+  standing branch to track separately.
 
 ## Mobile
 
