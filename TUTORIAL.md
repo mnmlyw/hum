@@ -170,7 +170,7 @@ hat  noise . . x . . . x . : hpf 8k decay .03
 ```
 
 four channels, two waveforms, two filters, one decay. a verse loop in
-sixteen lines.
+fourteen lines.
 
 ## what to try next
 
@@ -185,4 +185,4 @@ sixteen lines.
   editor.
 
 that's the whole language. the [SPEC](SPEC.md) is the full reference;
-the [demos/](demos/) folder has six longer examples to read.
+the [demos/](demos/) folder has ten longer examples to read.
