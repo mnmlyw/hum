@@ -125,6 +125,27 @@ test('chord with hold modifier sets data-h and advances step counter', async ({ 
   expect(nextStart).toContain('g4');
 });
 
+test('rejected channel line (empty pattern) does not shift later channels\' playhead index', async ({ page }) => {
+  // Regression: updateHighlight used to count every header-shaped line
+  // ("name waveform ...") toward chIdx, even ones the parser drops (empty
+  // pattern, or past the 8-channel cap). "broken" here has waveform "sqr"
+  // but no pattern tokens before the colon, so the parser rejects it —
+  // hum.channels is [lead, bass], but the old highlighter counted 3
+  // header-shaped lines and tagged bass's tokens data-ch="2" instead of "1".
+  await applyEdit(page, 'bpm 120\nlead tri c4 e4\nbroken sqr : vol .5\nbass saw c2 g2');
+
+  const channelNames = await page.evaluate(() =>
+    window.__hum.parse(document.querySelector('#editor').value).channels.map(c => c.name)
+  );
+  expect(channelNames).toEqual(['lead', 'bass']);
+
+  const bassSpans = await page.$$eval('.pt[data-ch="1"]', els => els.map(e => e.textContent.trim()));
+  expect(bassSpans).toEqual(['c2', 'g2']);
+
+  const phantomSpans = await page.$$eval('.pt[data-ch="2"]', els => els.length);
+  expect(phantomSpans).toBe(0);
+});
+
 test('modifier characters get the .md class', async ({ page }) => {
   await applyEdit(page, 'bpm 120\nlead sin c4*4 c4! c4?');
   const mds = await page.$$eval('.md', els => els.map(e => e.textContent));
