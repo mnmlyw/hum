@@ -497,6 +497,15 @@ describe('parser: chords', () => {
     assert.equal(hum.channels[0].pattern.length, 3);
     assert.equal(hum.channels[0].pattern[1].type, 'rest');
   });
+
+  it('error: unrecognized text trailing the chord bracket', () => {
+    // `[c4]5` used to parse silently (the tokenizer swallows trailing
+    // digits, and nothing downstream checked that base collapsed back to
+    // exactly '[]' after modifiers were split off) — the highlighter
+    // already flagged this with .er, so the parser should match.
+    const hum = parse('lead tri [c4]5');
+    assert.ok(hum.errors.some(e => /unrecognized text after chord bracket/.test(e.message)));
+  });
 });
 
 // ── Parser: Effects ─────────────────────────────────────────────────
@@ -664,6 +673,15 @@ describe('parser: error handling', () => {
   it('reports line numbers in errors', () => {
     const hum = parse('bpm 140\nlead foo c4');
     assert.ok(hum.errors.some(e => e.line === 2));
+  });
+
+  it('reports the raw source line, not the post-join index, after a continuation', () => {
+    // lead's 3 source lines (header + 2 continuations) collapse into a
+    // single joined-line entry. Before the fix, an error on the bass line
+    // below reported line 3 (the joined-array index) instead of line 5
+    // (where it actually appears in the file).
+    const hum = parse('lead tri\n  c4 e4\n  g4 a4\n\nbass saw zz9 c2');
+    assert.ok(hum.errors.some(e => e.line === 5 && /zz9/.test(e.message)));
   });
 
   it('reports unknown waveform', () => {
