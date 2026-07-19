@@ -1269,7 +1269,11 @@ function parse(text) {
         }
       }
 
-      result.channels.push({ name, waveform, pattern, effects });
+      // headerLine records which `lines` (post-join) entry this channel came
+      // from, so callers that walk raw source lines (the syntax highlighter)
+      // can tell which candidate channel lines actually survived parsing —
+      // a candidate can lose its slot to an empty pattern or the 8-channel cap.
+      result.channels.push({ name, waveform, pattern, effects, headerLine: i });
     } catch (e) {
       result.errors.push({ line: i + 1, message: e.message });
     }
@@ -2043,22 +2047,43 @@ let lastHighlightHtml = null;
 function updateHighlight() {
   const text = editor.value;
   const lines = text.split('\n');
+
+  // A header-shaped line (name + valid waveform) doesn't always survive
+  // parsing — an empty pattern or the 8-channel cap can drop it. If we
+  // counted header-shaped lines directly, a dropped candidate would shift
+  // every real channel after it out of sync with hum.channels, and the
+  // playhead would light up the wrong channel's tokens. Parse once, mirror
+  // parse()'s continuation-joining to find each raw line's post-join index,
+  // then use headerLine to map only the joined lines that actually became
+  // channels back to their real index in hum.channels.
+  const hum = parse(text);
+  const channelByHeaderLine = new Map();
+  hum.channels.forEach((c, idx) => channelByHeaderLine.set(c.headerLine, idx));
+  let joinIdx = -1;
+  const rawJoinIdx = lines.map((raw) => {
+    const stripped = raw.replace(/--.*$/, '');
+    if (!(stripped.match(/^[ \t]+\S/) && joinIdx >= 0)) joinIdx++;
+    return joinIdx;
+  });
+
   let prevIsChannel = false;
-  let chIdx = -1;
+  let chIdx = null;
   let stepCounter = null;
   const out = [];
-  for (const line of lines) {
+  for (let li = 0; li < lines.length; li++) {
+    const line = lines[li];
     const trimmed = line.replace(/--.*$/, '').trim();
     const tokens = trimmed.split(/\s+/);
     if (tokens.length >= 2 && WAVEFORMS.includes((tokens[1] || '').toLowerCase())) {
-      chIdx++;
-      stepCounter = { n: 0 };
+      chIdx = channelByHeaderLine.has(rawJoinIdx[li]) ? channelByHeaderLine.get(rawJoinIdx[li]) : null;
+      stepCounter = chIdx !== null ? { n: 0 } : null;
       prevIsChannel = true;
     } else if (line.match(/^[ \t]+\S/) && prevIsChannel) {
-      // continuation
+      // continuation — keep chIdx/stepCounter from the header line
     } else {
       prevIsChannel = false;
       stepCounter = null;
+      chIdx = null;
     }
     out.push(highlightLine(line, prevIsChannel, chIdx, stepCounter));
   }
@@ -2155,8 +2180,13 @@ function humKey(hum) {
   return hum.bpm + '|' + hum.channels.map(c =>
     c.name + c.waveform +
     c.pattern.map(s => {
-      if (s.type === 'note') return s.freq;
-      if (s.type === 'chord') return '[' + s.freqs.join('+') + ']';
+      // Velocity (accent !, ghost ?) must be part of the key — it's the only
+      // per-step field that doesn't already change the pattern's shape, so
+      // omitting it would make liveUpdate treat an accent/ghost-only edit as
+      // a no-op and silently drop it.
+      if (s.type === 'note') return s.freq + '@' + s.vel;
+      if (s.type === 'chord') return '[' + s.freqs.join('+') + ']@' + s.vel;
+      if (s.type === 'trigger') return 'x@' + s.vel;
       return s.type;
     }).join(',') +
     JSON.stringify(c.effects)

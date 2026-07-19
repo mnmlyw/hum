@@ -23,6 +23,21 @@ test('pattern-only edit is zero-latency (no scheduler rewind)', async ({ page })
   expect(patternName).toBe('a3');
 });
 
+test('accent/ghost-only edit applies during live playback', async ({ page }) => {
+  // Regression: humKey() used to omit step.vel, so an edit that only added
+  // accent (!) or ghost (?) produced an identical key and liveUpdate bailed
+  // out before touching node.channel — the edit silently never applied.
+  await applyEdit(page, 'bpm 120\nlead sin c4 c4 c4 c4');
+  await startPlayback(page);
+
+  await applyEdit(page, 'bpm 120\nlead sin c4! c4 c4 c4');
+
+  const vel = await page.evaluate(() =>
+    window.__hum.channelNodesByName.get('lead').channel.pattern[0].vel
+  );
+  expect(vel).toBeGreaterThan(1);
+});
+
 test('effect-only edit ramps volume to target without rebuild', async ({ page }) => {
   await applyEdit(page, 'bpm 120\nbass saw c3 e3 g3 c4 : vol .5');
   await startPlayback(page);
