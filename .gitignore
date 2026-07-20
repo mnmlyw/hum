@@ -3,7 +3,5 @@
 # project root (or anywhere else) stay ignored.
 !demos/*.hum
 node_modules/
-test-results/
-playwright-report/
 .claude/
 .DS_Store

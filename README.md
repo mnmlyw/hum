@@ -31,9 +31,7 @@ reference if you'd rather read the grammar.
 index.html        the app — DSL parser, audio engine, scheduler, editor, all of it
 SPEC.md           the language and runtime contract (this is the source of truth)
 demos/            shipped .hum files; load via the load button or drag-drop
-tests/
-├── parser.test.js     Node test suite (parser + scheduler math, ~90 ms)
-└── e2e/               Playwright suite (full browser, real Web Audio)
+tests/parser.test.js   Node test suite (parser + scheduler math, ~90 ms)
 tools/check-spec.js    asserts SPEC.md claims still match index.html
 .github/workflows/     GitHub Actions CI
 ```
@@ -43,14 +41,12 @@ tools/check-spec.js    asserts SPEC.md claims still match index.html
 ```sh
 npm install        # one-time
 npm test           # Node tests, sub-second feedback
-npm run test:e2e   # Playwright tests, ~10s
-npm run test:all   # lint + spec checker + both suites; what CI runs
+npm run test:all   # lint + spec checker + tests; what CI runs
 npm run lint       # eslint
 npm run check:spec # verify SPEC.md ↔ index.html
 ```
 
 A pre-commit hook runs `lint + check:spec + npm test` before each commit.
-The Playwright suite stays out of the pre-commit path — it runs in CI.
 
 ## Why one file
 
