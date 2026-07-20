@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hum — tutorial</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #16181a;
+  --bg2: #1c1f22;
+  --line: #24272b;
+  --fg: #ffffff;
+  --fg2: #7b8496;
+  --error: #ff6e5e;
+  --blue: #5ea1ff;
+  --green: #5eff6c;
+  --cyan: #5ef1ff;
+  --magenta: #ff5ef1;
+  --pink: #ff5ea0;
+  --orange: #ffbd5e;
+  --purple: #bd5eff;
+  --font: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+}
+
+body {
+  padding: 56px 24px 96px;
+}
+
+main {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+a { color: var(--cyan); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.92em;
+  color: var(--orange);
+}
+
+strong { color: var(--fg); font-weight: 600; }
+
+/* ── Header ──────────────────────────────────────────────────────── */
+
+header {
+  margin-bottom: 40px;
+}
+
+header .title {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: -0.5px;
+}
+
+header .title small {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--fg2);
+  margin-left: 12px;
+}
+
+header .tagline {
+  color: var(--fg2);
+  font-size: 15px;
+  margin-top: 10px;
+  line-height: 1.6;
+}
+
+header nav {
+  margin-top: 20px;
+  display: flex;
+  gap: 18px;
+  font-size: 13px;
+}
+
+/* ── Table of contents ──────────────────────────────────────────── */
+
+#toc {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px 22px;
+  margin-bottom: 48px;
+}
+
+#toc .toc-title {
+  color: var(--fg2);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+#toc ol {
+  list-style: none;
+  columns: 2;
+  column-gap: 24px;
+  font-size: 14px;
+}
+
+#toc li { margin-bottom: 6px; break-inside: avoid; }
+#toc a { color: var(--fg2); }
+#toc a:hover { color: var(--cyan); text-decoration: none; }
+
+/* ── Sections ────────────────────────────────────────────────────── */
+
+section {
+  margin-bottom: 44px;
+  scroll-margin-top: 24px;
+}
+
+section h2 {
+  font-size: 19px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+section h2 .num {
+  color: var(--magenta);
+  font-size: 15px;
+  min-width: 22px;
+}
+
+section p, section li {
+  color: var(--fg2);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+section p { margin-bottom: 10px; }
+
+section p:last-child, section ul:last-child { margin-bottom: 0; }
+
+section ul {
+  list-style: none;
+  margin: 10px 0;
+}
+
+section li {
+  padding-left: 18px;
+  position: relative;
+  margin-bottom: 6px;
+}
+
+section li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: var(--purple);
+  opacity: 0.6;
+}
+
+/* ── Code blocks ─────────────────────────────────────────────────── */
+
+pre.code {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* Same class names/colors as index.html's #highlight overlay, so a code
+   block here looks exactly like it would mid-type in the editor. */
+pre.code .cm { color: var(--fg2); }
+pre.code .kw { color: var(--magenta); }
+pre.code .wf { color: var(--cyan); }
+pre.code .nm { color: var(--fg); opacity: 0.5; }
+pre.code .nt { color: var(--green); }
+pre.code .tr { color: var(--pink); }
+pre.code .rs { color: var(--fg2); opacity: 0.3; }
+pre.code .bl { color: var(--fg2); opacity: 0.3; }
+pre.code .co { color: var(--purple); }
+pre.code .fx { color: var(--blue); }
+pre.code .nu { color: var(--orange); }
+pre.code .md { color: var(--purple); opacity: 0.7; }
+pre.code .er { text-decoration: underline wavy var(--error); }
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+
+footer {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  color: var(--fg2);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+@media (max-width: 560px) {
+  body { padding: 32px 16px 64px; }
+  header .title { font-size: 32px; }
+  #toc ol { columns: 1; }
+}
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="title">hum<small>tutorial</small></div>
+  <p class="tagline">a 5-minute walkthrough of every feature in hum. type each block into
+    the editor and press play. each one builds on the last.</p>
+  <nav>
+    <a href="index.html">→ open hum</a>
+    <a href="SPEC.md">full spec</a>
+    <a href="https://github.com/mnmlyw/hum">github</a>
+  </nav>
+</header>
+
+<div id="toc">
+  <div class="toc-title">contents</div>
+  <ol>
+    <li><a href="#s1">1. one note</a></li>
+    <li><a href="#s2">2. a melody</a></li>
+    <li><a href="#s3">3. rests</a></li>
+    <li><a href="#s4">4. a second channel</a></li>
+    <li><a href="#s5">5. effects</a></li>
+    <li><a href="#s6">6. drums</a></li>
+    <li><a href="#s7">7. multi-line patterns</a></li>
+    <li><a href="#s8">8. expressivity per note</a></li>
+    <li><a href="#s9">9. chords</a></li>
+    <li><a href="#s10">10. polyrhythm — the trick</a></li>
+    <li><a href="#s11">11. live coding</a></li>
+    <li><a href="#s12">12. all together</a></li>
+  </ol>
+</div>
+
+<section id="s1">
+<h2><span class="num">1</span>one note</h2>
+<pre class="code" data-hum>bpm 120
+lead sin c4</pre>
+<p class="md">a line is a channel. `lead` is its name. `sin` is the waveform. `c4` is
+middle C. you'll hear it pulse once per beat.</p>
+</section>
+
+<section id="s2">
+<h2><span class="num">2</span>a melody</h2>
+<pre class="code" data-hum>bpm 120
+lead sin c4 e4 g4 c5</pre>
+<p class="md">each token is one step (an 8th note). four tokens = four pitches. the
+pattern loops forever.</p>
+</section>
+
+<section id="s3">
+<h2><span class="num">3</span>rests</h2>
+<pre class="code" data-hum>bpm 120
+lead sin c4 . . e4 . . g4 .</pre>
+<p class="md">`.` is a rest. so is `_` if you prefer. rest tokens count as steps too —
+this pattern is 8 steps long, not 3.</p>
+</section>
+
+<section id="s4">
+<h2><span class="num">4</span>a second channel</h2>
+<pre class="code" data-hum>bpm 120
+lead sin c4 e4 g4 c5
+bass saw c2 . g2 .</pre>
+<p class="md">two lines, two channels. they play at the same time. waveforms: `sin`,
+`tri`, `sqr`, `saw`, `noise`. octaves run 0–8.</p>
+</section>
+
+<section id="s5">
+<h2><span class="num">5</span>effects</h2>
+<pre class="code" data-hum>bpm 120
+lead sin c4 e4 g4 c5 : vol .5
+bass saw c2 . g2 .   : lpf 400</pre>
+<p class="md">after `:` you can set effects. `vol` (0–1), `lpf` (low-pass filter Hz),
+`hpf` (high-pass), `decay` (seconds — makes notes percussive). `.5` is
+shorthand for `0.5`; `400` is just a number; `2k` means 2000.</p>
+</section>
+
+<section id="s6">
+<h2><span class="num">6</span>drums</h2>
+<pre class="code" data-hum>bpm 120
+kick noise x . . . x . . . : lpf 50 decay .05
+hat  noise . . x . . . x . : hpf 8k decay .015</pre>
+<p class="md">`noise` is the noise waveform. `x` triggers a hit. high-pass + short
+decay = hi-hat. low-pass + slightly-longer decay = kick.</p>
+</section>
+
+<section id="s7">
+<h2><span class="num">7</span>multi-line patterns</h2>
+<pre class="code" data-hum>bpm 96
+lead tri
+  c4 e4 g4 c5
+  g4 e4 c4 .
+  : vol .4</pre>
+<p class="md">indent any line to continue the previous channel. the pattern above
+plays as `c4 e4 g4 c5 g4 e4 c4 .` — one 8-step loop. effects can live on
+their own line too.</p>
+</section>
+
+<section id="s8">
+<h2><span class="num">8</span>expressivity per note</h2>
+<p class="md">three modifiers attach to any token: `*N` (hold for N steps), `!` (accent),
+`?` (ghost note).</p>
+<pre class="code" data-hum>bpm 120
+lead sin c4*4 e4 g4 c5</pre>
+<p class="md">`c4*4` = trigger c4, sustain across 4 step slots without retriggering.
+the pattern is 7 steps total: 4 for the held c4, then e4, g4, c5.</p>
+<pre class="code" data-hum>bpm 120
+lead sin c4! c4 c4? c4</pre>
+<p class="md">four c4s at four dynamics. `c4!` is louder, `c4?` is quieter, bare `c4`
+sits in the middle.</p>
+<p class="md">modifiers stack. `c4!*4` and `c4*4!` both = an accented note held for
+four steps. accent + ghost on the same token is an error.</p>
+<p class="md">modifiers also work on rests (`.*4` = four rests, useful shorthand) and
+triggers (`x!` = accented hit; `x*4` = sustained noise).</p>
+</section>
+
+<section id="s9">
+<h2><span class="num">9</span>chords</h2>
+<pre class="code" data-hum>bpm 96
+pad sin [c4 e4 g4] . [d4 f4 a4] . : vol .4</pre>
+<p class="md">square brackets pack multiple notes into one step. the channel plays them
+all at once, so one line can carry harmony without burning a second
+channel. modifiers attach outside the brackets — `[c4 e4 g4]*4` holds the
+chord across 4 slots, `[c4 e4 g4]!` accents it.</p>
+<p class="md">chords are pitched-only (no `[...]` on a `noise` channel) and cap at 8
+notes each. single-note brackets `[c4]` just behave like a plain note.</p>
+</section>
+
+<section id="s10">
+<h2><span class="num">10</span>polyrhythm — the trick</h2>
+<pre class="code" data-hum>bpm 120
+lead sin c4 e4 g4 c5 e4 g4 c5
+kick noise x . . . x . . .</pre>
+<p class="md">the lead has 7 steps, the kick has 8. they loop independently and never
+re-align. give two channels different lengths and you get polyrhythm
+for free. coprime lengths (5 vs 7, 7 vs 11) drift forever.</p>
+</section>
+
+<section id="s11">
+<h2><span class="num">11</span>live coding</h2>
+<p class="md">playback runs while you type. edits land after a 300 ms pause:</p>
+<ul>
+<li class="md">pattern changes (note swaps, rests added) take effect on the next
+scheduler tick.</li>
+<li class="md">structural changes (new channel, swapped waveform, removed channel)
+quantize to the next step boundary so they land musically.</li>
+<li class="md">press **Cmd/Ctrl+Enter** to apply immediately without waiting on the
+debounce.</li>
+<li class="md">press **Esc** to stop. press it again with **Cmd/Ctrl+Enter** to start
+fresh. there is no rewind — start always means step 0.</li>
+</ul>
+</section>
+
+<section id="s12">
+<h2><span class="num">12</span>all together</h2>
+<p class="md">a full mini-song using everything above:</p>
+<pre class="code" data-hum>bpm 96
+
+-- glass
+lead tri
+  . . f#4 . a4 . c#5 .
+  d5 . . . c#5 . a4 .
+  : vol .5
+
+bass saw
+  d2 . . d2 . . d3 .
+  : lpf 200
+
+kick noise x . . . . . x . : lpf 50 decay .06
+hat  noise . . x . . . x . : hpf 8k decay .03</pre>
+<p class="md">four channels, two waveforms, two filters, one decay. a verse loop in
+fourteen lines.</p>
+</section>
+
+<section id="next">
+<h2>what to try next</h2>
+<ul>
+<li class="md">open one of the demos via the **presets** picker and read it. they're
+the same `.hum` text you've been writing.</li>
+<li class="md">give two melodic channels different lengths (e.g. 7 vs 11) and listen
+to them drift. this is hum's core pleasure.</li>
+<li class="md">aim a long `decay` (`.5`, `1.5`) at a `sin` channel — it becomes a
+pluck or a bell.</li>
+<li class="md">save your song with the **save** button, drag the file onto the page
+later to load it. `.hum` files are plain text — open them in any
+editor.</li>
+</ul>
+<p class="md" style="margin-top: 16px;">that's the whole language. the [SPEC](SPEC.md) is the full reference;
+the [demos/](demos/) folder has ten longer examples to read.</p>
+</section>
+
+<footer>
+  generated from <a href="TUTORIAL.md">TUTORIAL.md</a> — the markdown version is the
+  source of truth; this page mirrors it with hum's own syntax highlighter.<br>
+  <a href="index.html">← back to hum</a>
+</footer>
+
+</main>
+
+<script>
+// ── Inline markdown for prose ───────────────────────────────────────
+// Paragraphs/list items above are authored as plain text (backtick code,
+// **bold**, [text](url) links) so they read exactly like TUTORIAL.md.
+// This converts that inline markdown to HTML at load time.
+function escHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function mdInline(text) {
+  return escHtml(text)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+}
+for (const el of document.querySelectorAll('.md')) {
+  el.innerHTML = mdInline(el.textContent);
+}
+
+// ── hum syntax highlighter (ported from index.html, static rendering) ──
+// Same tokenizer/classifier as the live editor's #highlight overlay, minus
+// the playhead (.pt/data-ch/data-s) machinery — this page never plays audio,
+// it just needs the same token → color mapping so examples read exactly
+// like they would mid-type in the app.
+
+const NOTE_NAMES = ['c','c#','d','d#','e','f','f#','g','g#','a','a#','b'];
+const FLAT_MAP = { 'db':'c#','eb':'d#','fb':'e','gb':'f#','ab':'g#','bb':'a#','cb':'b' };
+const WAVEFORMS = ['sin','tri','sqr','saw','noise'];
+const EFFECT_NAMES = new Set(['lpf','hpf','decay','vol']);
+const NUM_RE = /^\.?\d[\d.]*k?$/;
+
+const NOTE_FREQ = {};
+for (let oct = 0; oct <= 8; oct++) {
+  for (let i = 0; i < 12; i++) NOTE_FREQ[NOTE_NAMES[i] + oct] = true;
+}
+for (let oct = 0; oct <= 8; oct++) {
+  for (const [flat, sharp] of Object.entries(FLAT_MAP)) {
+    const sharpOct = (flat === 'cb') ? oct - 1 : oct;
+    if (sharpOct >= 0 && sharpOct <= 8) NOTE_FREQ[flat + oct] = true;
+  }
+}
+
+function span(cls, text) { return `<span class="${cls}">${escHtml(text)}</span>`; }
+
+function highlightTokens(code, comment) {
+  const colonIdx = code.indexOf(':');
+  const patPart = colonIdx !== -1 ? code.slice(0, colonIdx) : code;
+  const fxPart = colonIdx !== -1 ? code.slice(colonIdx) : '';
+  let out = '';
+
+  const chunks = [];
+  {
+    let i = 0;
+    while (i < patPart.length) {
+      if (/\s/.test(patPart[i])) {
+        const start = i;
+        while (i < patPart.length && /\s/.test(patPart[i])) i++;
+        chunks.push({ kind: 'ws', text: patPart.slice(start, i) });
+      } else if (patPart[i] === '[') {
+        const start = i;
+        i++;
+        while (i < patPart.length && patPart[i] !== ']') i++;
+        if (i < patPart.length) i++;
+        while (i < patPart.length && (patPart[i] === '!' || patPart[i] === '?' || patPart[i] === '*' || /\d/.test(patPart[i]))) i++;
+        chunks.push({ kind: 'chord', text: patPart.slice(start, i) });
+      } else {
+        const start = i;
+        while (i < patPart.length && !/\s/.test(patPart[i]) && patPart[i] !== '[') i++;
+        chunks.push({ kind: 'tok', text: patPart.slice(start, i) });
+      }
+    }
+  }
+
+  for (const chunk of chunks) {
+    if (chunk.kind === 'ws') { out += escHtml(chunk.text); continue; }
+    const ct = chunk.text;
+    const low = ct.toLowerCase();
+    if (chunk.kind === 'tok' && (low === '|' || low === ',')) {
+      out += span('bl', ct); continue;
+    }
+
+    const parts = low.split(/(\*\d+|!|\?)/).filter(Boolean);
+    const base = parts[0];
+    const modParts = parts.slice(1);
+
+    let seenAcc = false, seenGho = false, seenHold = false, modsValid = true;
+    for (const m of modParts) {
+      if (m === '!') { if (seenAcc || seenGho) { modsValid = false; break; } seenAcc = true; }
+      else if (m === '?') { if (seenAcc || seenGho) { modsValid = false; break; } seenGho = true; }
+      else if (m.startsWith('*')) {
+        if (seenHold) { modsValid = false; break; }
+        const n = parseInt(m.slice(1), 10);
+        if (!Number.isFinite(n) || n < 1) { modsValid = false; break; }
+        seenHold = true;
+      } else { modsValid = false; break; }
+    }
+
+    const baseText = ct.slice(0, base.length);
+    const modsText = ct.slice(base.length);
+    let inner = '';
+
+    if (chunk.kind === 'chord') {
+      if (!base.endsWith(']') || base.length < 2) {
+        inner = span('er', baseText);
+      } else {
+        const payload = baseText.slice(1, -1);
+        const noteParts = payload.split(/(\s+)/);
+        let chordInner = '<span class="bl">[</span>';
+        for (const p of noteParts) {
+          if (!p) continue;
+          if (/^\s+$/.test(p)) chordInner += escHtml(p);
+          else if (NOTE_FREQ[p.toLowerCase()]) chordInner += span('nt', p);
+          else chordInner += span('er', p);
+        }
+        chordInner += '<span class="bl">]</span>';
+        inner = chordInner;
+      }
+    } else {
+      let baseCls;
+      if (base === '.' || base === '_') baseCls = 'rs';
+      else if (base === 'x') baseCls = 'tr';
+      else if (NOTE_FREQ[base]) baseCls = 'nt';
+      else baseCls = 'er';
+      inner = span(baseCls, baseText);
+    }
+
+    if (modsText) inner += span(modsValid ? 'md' : 'er', modsText);
+    out += inner;
+  }
+
+  if (fxPart) {
+    out += span('co', ':');
+    const fxBody = fxPart.slice(1);
+    const fxTokens = fxBody.split(/(\s+)/);
+    for (const ft of fxTokens) {
+      if (ft === '') continue;
+      if (ft.match(/^\s+$/)) out += escHtml(ft);
+      else if (EFFECT_NAMES.has(ft.toLowerCase())) out += span('fx', ft);
+      else if (NUM_RE.test(ft)) out += span('nu', ft);
+      else out += span('er', ft);
+    }
+  }
+
+  return out + (comment ? span('cm', comment) : '');
+}
+
+function highlightLine(line, prevIsChannel) {
+  const commentIdx = line.indexOf('--');
+  let code = line, comment = '';
+  if (commentIdx !== -1) { code = line.slice(0, commentIdx); comment = line.slice(commentIdx); }
+  if (!code.trim()) return escHtml(code) + (comment ? span('cm', comment) : '');
+  const trimmed = code.trim();
+
+  if (code.match(/^[ \t]+\S/) && prevIsChannel) {
+    const lead = code.match(/^(\s*)/)[1];
+    return escHtml(lead) + highlightTokens(code.trimStart(), comment);
+  }
+
+  if (trimmed.match(/^bpm\s/i)) {
+    const parts = trimmed.split(/(\s+)/);
+    let out = '';
+    const lead = code.match(/^(\s*)/)[1];
+    out += escHtml(lead);
+    out += span('kw', parts[0]);
+    for (let i = 1; i < parts.length; i++) {
+      out += parts[i].match(/\s/) ? escHtml(parts[i]) : span('nu', parts[i]);
+    }
+    return out + (comment ? span('cm', comment) : '');
+  }
+
+  const tokens = trimmed.split(/\s+/);
+  if (tokens.length >= 2 && WAVEFORMS.includes(tokens[1].toLowerCase())) {
+    const lead = code.match(/^(\s*)/)[1];
+    let out = escHtml(lead);
+    const codeTokens = code.trimStart().split(/(\s+)/);
+    let headerDone = false, tokenIdx = 0, restStart = 0;
+    for (const ct of codeTokens) {
+      if (ct.match(/^\s+$/)) { out += escHtml(ct); restStart += ct.length; continue; }
+      if (tokenIdx === 0) out += span('nm', ct);
+      else if (tokenIdx === 1) { out += span('wf', ct); headerDone = true; }
+      restStart += ct.length;
+      tokenIdx++;
+      if (headerDone) break;
+    }
+    const remainder = code.trimStart().slice(restStart);
+    if (remainder.trim()) out += highlightTokens(remainder, '');
+    return out + (comment ? span('cm', comment) : '');
+  }
+
+  return escHtml(code) + (comment ? span('cm', comment) : '');
+}
+
+function highlightHumBlock(text) {
+  const lines = text.split('\n');
+  let prevIsChannel = false;
+  const out = [];
+  for (const line of lines) {
+    const trimmed = line.replace(/--.*$/, '').trim();
+    const tokens = trimmed.split(/\s+/);
+    if (tokens.length >= 2 && WAVEFORMS.includes((tokens[1] || '').toLowerCase())) {
+      prevIsChannel = true;
+    } else if (!(line.match(/^[ \t]+\S/) && prevIsChannel)) {
+      prevIsChannel = false;
+    }
+    out.push(highlightLine(line, prevIsChannel));
+  }
+  return out.join('\n');
+}
+
+for (const el of document.querySelectorAll('pre.code[data-hum]')) {
+  el.innerHTML = highlightHumBlock(el.textContent);
+}
+</script>
+</body>
+</html>
