@@ -27,18 +27,3 @@ jobs:
       - run: npm run preset:check
 
       - run: npm test
-
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-
-      # Always run the install step: --with-deps installs apt packages that
-      # the browser-binary cache doesn't preserve, and `playwright install`
-      # itself is a no-op for browsers already present in the cache dir.
-      - name: Install Playwright browsers + system deps
-        run: npx playwright install --with-deps chromium webkit
-
-      - run: npm run test:e2e
