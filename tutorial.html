@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hum — tutorial</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #16181a;
+  --bg2: #1c1f22;
+  --line: #24272b;
+  --fg: #ffffff;
+  --fg2: #7b8496;
+  --error: #ff6e5e;
+  --blue: #5ea1ff;
+  --green: #5eff6c;
+  --cyan: #5ef1ff;
+  --magenta: #ff5ef1;
+  --pink: #ff5ea0;
+  --orange: #ffbd5e;
+  --purple: #bd5eff;
+  --font: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+}
+
+body {
+  padding: 56px 24px 96px;
+}
+
+main {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+a { color: var(--cyan); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.92em;
+  color: var(--orange);
+}
+
+strong { color: var(--fg); font-weight: 600; }
+
+/* ── Header ──────────────────────────────────────────────────────── */
+
+header {
+  margin-bottom: 40px;
+}
+
+header .title {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: -0.5px;
+}
+
+header .title small {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--fg2);
+  margin-left: 12px;
+}
+
+header .tagline {
+  color: var(--fg2);
+  font-size: 15px;
+  margin-top: 10px;
+  line-height: 1.6;
+}
+
+header .hint {
+  color: var(--fg2);
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+header .hint .dot {
+  color: var(--cyan);
+}
+
+header nav {
+  margin-top: 20px;
+  display: flex;
+  gap: 18px;
+  font-size: 13px;
+}
+
+/* ── Table of contents ──────────────────────────────────────────── */
+
+#toc {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px 22px;
+  margin-bottom: 48px;
+}
+
+#toc .toc-title {
+  color: var(--fg2);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+#toc ol {
+  list-style: none;
+  columns: 2;
+  column-gap: 24px;
+  font-size: 14px;
+}
+
+#toc li { margin-bottom: 6px; break-inside: avoid; }
+#toc a { color: var(--fg2); }
+#toc a:hover { color: var(--cyan); text-decoration: none; }
+
+/* ── Sections ────────────────────────────────────────────────────── */
+
+section {
+  margin-bottom: 44px;
+  scroll-margin-top: 24px;
+}
+
+section h2 {
+  font-size: 19px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+section h2 .num {
+  color: var(--magenta);
+  font-size: 15px;
+  min-width: 22px;
+}
+
+section p, section li {
+  color: var(--fg2);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+section p { margin-bottom: 10px; }
+
+section p:last-child, section ul:last-child { margin-bottom: 0; }
+
+section ul {
+  list-style: none;
+  margin: 10px 0;
+}
+
+section li {
+  padding-left: 18px;
+  position: relative;
+  margin-bottom: 6px;
+}
+
+section li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: var(--purple);
+  opacity: 0.6;
+}
+
+/* ── Code blocks ─────────────────────────────────────────────────── */
+
+.code-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.code-toolbar .status {
+  font-size: 11px;
+  color: var(--fg2);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.code-toolbar .status.show { opacity: 1; }
+
+.play-btn {
+  background: none;
+  border: none;
+  color: var(--fg2);
+  font-family: var(--font);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+
+.play-btn:hover { color: var(--fg); background: rgba(255, 255, 255, 0.06); }
+.play-btn.playing { color: var(--cyan); }
+
+pre.code {
+  padding: 16px 20px;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* Same class names/colors as index.html's #highlight overlay, so a code
+   block here looks exactly like it would mid-type in the editor. */
+pre.code .cm { color: var(--fg2); }
+pre.code .kw { color: var(--magenta); }
+pre.code .wf { color: var(--cyan); }
+pre.code .nm { color: var(--fg); opacity: 0.5; }
+pre.code .nt { color: var(--green); }
+pre.code .tr { color: var(--pink); }
+pre.code .rs { color: var(--fg2); opacity: 0.3; }
+pre.code .bl { color: var(--fg2); opacity: 0.3; }
+pre.code .co { color: var(--purple); }
+pre.code .fx { color: var(--blue); }
+pre.code .nu { color: var(--orange); }
+pre.code .md { color: var(--purple); opacity: 0.7; }
+pre.code .er { text-decoration: underline wavy var(--error); }
+
+/* Playhead — mirrors index.html's #highlight .pt.playing exactly. */
+pre.code .pt.playing { background: var(--cyan); border-radius: 2px; }
+pre.code .pt.playing .nt,
+pre.code .pt.playing .tr,
+pre.code .pt.playing .md { color: var(--bg); opacity: 1; }
+pre.code .pt.playing:has(.rs) { background: none; }
+pre.code .pt.playing .rs { opacity: 0.7; }
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+
+footer {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  color: var(--fg2);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+@media (max-width: 560px) {
+  body { padding: 32px 16px 64px; }
+  header .title { font-size: 32px; }
+  #toc ol { columns: 1; }
+}
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="title">hum<small>tutorial</small></div>
+  <p class="tagline">a 5-minute walkthrough of every feature in hum. read each block,
+    then press play — it's live, right here. each one builds on the last.</p>
+  <p class="hint"><span class="dot">●</span> every example below is playable. click <strong>play</strong> on any block to hear it.</p>
+  <nav>
+    <a href="index.html">→ open hum</a>
+    <a href="SPEC.md">full spec</a>
+    <a href="https://github.com/mnmlyw/hum">github</a>
+  </nav>
+</header>
+
+<div id="toc">
+  <div class="toc-title">contents</div>
+  <ol>
+    <li><a href="#s1">1. one note</a></li>
+    <li><a href="#s2">2. a melody</a></li>
+    <li><a href="#s3">3. rests</a></li>
+    <li><a href="#s4">4. a second channel</a></li>
+    <li><a href="#s5">5. effects</a></li>
+    <li><a href="#s6">6. drums</a></li>
+    <li><a href="#s7">7. multi-line patterns</a></li>
+    <li><a href="#s8">8. expressivity per note</a></li>
+    <li><a href="#s9">9. chords</a></li>
+    <li><a href="#s10">10. polyrhythm — the trick</a></li>
+    <li><a href="#s11">11. live coding</a></li>
+    <li><a href="#s12">12. all together</a></li>
+  </ol>
+</div>
+
+<section id="s1">
+<h2><span class="num">1</span>one note</h2>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 120
+lead sin c4</pre>
+</div>
+<p class="md">a line is a channel. `lead` is its name. `sin` is the waveform. `c4` is
+middle C. you'll hear it pulse once per beat.</p>
+</section>
+
+<section id="s2">
+<h2><span class="num">2</span>a melody</h2>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 120
+lead sin c4 e4 g4 c5</pre>
+</div>
+<p class="md">each token is one step (an 8th note). four tokens = four pitches. the
+pattern loops forever.</p>
+</section>
+
+<section id="s3">
+<h2><span class="num">3</span>rests</h2>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 120
+lead sin c4 . . e4 . . g4 .</pre>
+</div>
+<p class="md">`.` is a rest. so is `_` if you prefer. rest tokens count as steps too —
+this pattern is 8 steps long, not 3.</p>
+</section>
+
+<section id="s4">
+<h2><span class="num">4</span>a second channel</h2>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 120
+lead sin c4 e4 g4 c5
+bass saw c2 . g2 .</pre>
+</div>
+<p class="md">two lines, two channels. they play at the same time. waveforms: `sin`,
+`tri`, `sqr`, `saw`, `noise`. octaves run 0–8.</p>
+</section>
+
+<section id="s5">
+<h2><span class="num">5</span>effects</h2>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 120
+lead sin c4 e4 g4 c5 : vol .5
+bass saw c2 . g2 .   : lpf 400</pre>
+</div>
+<p class="md">after `:` you can set effects. `vol` (0–1), `lpf` (low-pass filter Hz),
+`hpf` (high-pass), `decay` (seconds — makes notes percussive). `.5` is
+shorthand for `0.5`; `400` is just a number; `2k` means 2000.</p>
+</section>
+
+<section id="s6">
+<h2><span class="num">6</span>drums</h2>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 120
+kick noise x . . . x . . . : lpf 50 decay .05
+hat  noise . . x . . . x . : hpf 8k decay .015</pre>
+</div>
+<p class="md">`noise` is the noise waveform. `x` triggers a hit. high-pass + short
+decay = hi-hat. low-pass + slightly-longer decay = kick.</p>
+</section>
+
+<section id="s7">
+<h2><span class="num">7</span>multi-line patterns</h2>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 96
+lead tri
+  c4 e4 g4 c5
+  g4 e4 c4 .
+  : vol .4</pre>
+</div>
+<p class="md">indent any line to continue the previous channel. the pattern above
+plays as `c4 e4 g4 c5 g4 e4 c4 .` — one 8-step loop. effects can live on
+their own line too.</p>
+</section>
+
+<section id="s8">
+<h2><span class="num">8</span>expressivity per note</h2>
+<p class="md">three modifiers attach to any token: `*N` (hold for N steps), `!` (accent),
+`?` (ghost note).</p>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 120
+lead sin c4*4 e4 g4 c5</pre>
+</div>
+<p class="md">`c4*4` = trigger c4, sustain across 4 step slots without retriggering.
+the pattern is 7 steps total: 4 for the held c4, then e4, g4, c5.</p>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 120
+lead sin c4! c4 c4? c4</pre>
+</div>
+<p class="md">four c4s at four dynamics. `c4!` is louder, `c4?` is quieter, bare `c4`
+sits in the middle.</p>
+<p class="md">modifiers stack. `c4!*4` and `c4*4!` both = an accented note held for
+four steps. accent + ghost on the same token is an error.</p>
+<p class="md">modifiers also work on rests (`.*4` = four rests, useful shorthand) and
+triggers (`x!` = accented hit; `x*4` = sustained noise).</p>
+</section>
+
+<section id="s9">
+<h2><span class="num">9</span>chords</h2>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 96
+pad sin [c4 e4 g4] . [d4 f4 a4] . : vol .4</pre>
+</div>
+<p class="md">square brackets pack multiple notes into one step. the channel plays them
+all at once, so one line can carry harmony without burning a second
+channel. modifiers attach outside the brackets — `[c4 e4 g4]*4` holds the
+chord across 4 slots, `[c4 e4 g4]!` accents it.</p>
+<p class="md">chords are pitched-only (no `[...]` on a `noise` channel) and cap at 8
+notes each. single-note brackets `[c4]` just behave like a plain note.</p>
+</section>
+
+<section id="s10">
+<h2><span class="num">10</span>polyrhythm — the trick</h2>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 120
+lead sin c4 e4 g4 c5 e4 g4 c5
+kick noise x . . . x . . .</pre>
+</div>
+<p class="md">the lead has 7 steps, the kick has 8. they loop independently and never
+re-align. give two channels different lengths and you get polyrhythm
+for free. coprime lengths (5 vs 7, 7 vs 11) drift forever.</p>
+</section>
+
+<section id="s11">
+<h2><span class="num">11</span>live coding</h2>
+<p class="md">playback runs while you type. edits land after a 300 ms pause:</p>
+<ul>
+<li class="md">pattern changes (note swaps, rests added) take effect on the next
+scheduler tick.</li>
+<li class="md">structural changes (new channel, swapped waveform, removed channel)
+quantize to the next step boundary so they land musically.</li>
+<li class="md">press **Cmd/Ctrl+Enter** to apply immediately without waiting on the
+debounce.</li>
+<li class="md">press **Esc** to stop. press it again with **Cmd/Ctrl+Enter** to start
+fresh. there is no rewind — start always means step 0.</li>
+</ul>
+<p class="md" style="margin-top: 10px;">(this page plays examples read-only — open <a href="index.html">the app</a> to
+edit and hear changes live.)</p>
+</section>
+
+<section id="s12">
+<h2><span class="num">12</span>all together</h2>
+<p class="md">a full mini-song using everything above:</p>
+<div class="code-wrap">
+  <div class="code-toolbar"><span class="status"></span><button class="play-btn">play</button></div>
+  <pre class="code">bpm 96
+
+-- glass
+lead tri
+  . . f#4 . a4 . c#5 .
+  d5 . . . c#5 . a4 .
+  : vol .5
+
+bass saw
+  d2 . . d2 . . d3 .
+  : lpf 200
+
+kick noise x . . . . . x . : lpf 50 decay .06
+hat  noise . . x . . . x . : hpf 8k decay .03</pre>
+</div>
+<p class="md">four channels, two waveforms, two filters, one decay. a verse loop in
+fourteen lines.</p>
+</section>
+
+<section id="next">
+<h2>what to try next</h2>
+<ul>
+<li class="md">open one of the demos via the **presets** picker and read it. they're
+the same `.hum` text you've been writing.</li>
+<li class="md">give two melodic channels different lengths (e.g. 7 vs 11) and listen
+to them drift. this is hum's core pleasure.</li>
+<li class="md">aim a long `decay` (`.5`, `1.5`) at a `sin` channel — it becomes a
+pluck or a bell.</li>
+<li class="md">save your song with the **save** button, drag the file onto the page
+later to load it. `.hum` files are plain text — open them in any
+editor.</li>
+</ul>
+<p class="md" style="margin-top: 16px;">that's the whole language. the [SPEC](SPEC.md) is the full reference;
+the [demos/](demos/) folder has ten longer examples to read.</p>
+</section>
+
+<footer>
+  generated from <a href="TUTORIAL.md">TUTORIAL.md</a> — the markdown version is the
+  source of truth; this page mirrors it, adding play buttons powered by a
+  hand-ported copy of hum's own parser and audio engine.<br>
+  <a href="index.html">← back to hum</a>
+</footer>
+
+</main>
+
+<script>
+// ── Inline markdown for prose ───────────────────────────────────────
+// Paragraphs/list items above are authored as plain text (backtick code,
+// **bold**, [text](url) links) so they read exactly like TUTORIAL.md.
+// This converts that inline markdown to HTML at load time.
+function escHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function mdInline(text) {
+  return escHtml(text)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
+}
+for (const el of document.querySelectorAll('.md')) {
+  el.innerHTML = mdInline(el.textContent);
+}
+
+// ── hum core: parser + audio engine + scheduler ─────────────────────
+//
+// This is a deliberate, hand-maintained port of the relevant parts of
+// index.html's <script> — the DSL parser (parse, tokenizePattern, Step),
+// the Web Audio engine (createChannelNode, routeVoices, scheduleStep),
+// and the lookahead Scheduler — trimmed to what a static playground page
+// needs: no editor, no live-coding diff (liveUpdate/humKey), no save/load,
+// no canvas visualizer. Each code block builds its own throwaway channel
+// graph on play and tears it down on stop or when another block starts.
+//
+// There's no automated drift check for this file the way tools/check-spec.js
+// keeps SPEC.md honest against index.html — if the DSL grammar or engine
+// changes there, this needs a matching manual update.
+
+const NOTE_NAMES = ['c','c#','d','d#','e','f','f#','g','g#','a','a#','b'];
+const FLAT_MAP = { 'db':'c#','eb':'d#','fb':'e','gb':'f#','ab':'g#','bb':'a#','cb':'b' };
+const WAVEFORM_MAP = { sin:'sine', tri:'triangle', sqr:'square', saw:'sawtooth' };
+const WAVEFORMS = ['sin','tri','sqr','saw','noise'];
+const MAX_CHANNELS = 8;
+const DEFAULT_BPM = 120;
+const SCHEDULE_AHEAD = 0.15;
+const TICK_MS = 25;
+const NUM_RE = /^\.?\d[\d.]*k?$/;
+
+const timerWorkerBlob = new Blob([`
+let id = null;
+onmessage = function(e) {
+  if (e.data.cmd === 'start') {
+    if (id !== null) clearInterval(id);
+    id = setInterval(function() { postMessage('tick'); }, e.data.interval);
+  } else if (e.data.cmd === 'stop') {
+    if (id !== null) { clearInterval(id); id = null; }
+  }
+};
+`], { type: 'text/javascript' });
+const timerWorker = new Worker(URL.createObjectURL(timerWorkerBlob));
+
+const NOTE_FREQ = {};
+for (let oct = 0; oct <= 8; oct++) {
+  for (let i = 0; i < 12; i++) {
+    const midi = oct * 12 + i + 12;
+    const freq = 440 * Math.pow(2, (midi - 69) / 12);
+    NOTE_FREQ[NOTE_NAMES[i] + oct] = freq;
+  }
+}
+for (let oct = 0; oct <= 8; oct++) {
+  for (const [flat, sharp] of Object.entries(FLAT_MAP)) {
+    const sharpOct = (flat === 'cb') ? oct - 1 : oct;
+    if (sharpOct >= 0 && sharpOct <= 8) {
+      NOTE_FREQ[flat + oct] = NOTE_FREQ[sharp + sharpOct];
+    }
+  }
+}
+
+const Step = {
+  rest:    () => ({ type: 'rest' }),
+  trigger: (vel = 1) => ({ type: 'trigger', vel }),
+  note:    (freq, name, vel = 1, hold = 1) => ({ type: 'note', freq, name, vel, hold }),
+  chord:   (freqs, names, vel = 1, hold = 1) => ({ type: 'chord', freqs, names, vel, hold }),
+  sustain: () => ({ type: 'sustain' })
+};
+const MAX_CHORD_NOTES = 8;
+const VEL_DEFAULT = 1.0;
+const VEL_ACCENT  = 1.5;
+const VEL_GHOST   = 0.4;
+
+function parseNum(s) {
+  if (!s) return NaN;
+  s = s.trim().toLowerCase();
+  if (s.endsWith('k')) return parseFloat(s.slice(0, -1)) * 1000;
+  return parseFloat(s);
+}
+
+const EFFECT_NAMES = new Set(['lpf','hpf','decay','vol']);
+
+function tokenizePattern(s) {
+  const out = [];
+  let i = 0;
+  while (i < s.length) {
+    while (i < s.length && /\s/.test(s[i])) i++;
+    if (i >= s.length) break;
+    const start = i;
+    if (s[i] === '[') {
+      i++;
+      while (i < s.length && s[i] !== ']') i++;
+      if (i < s.length) i++;
+      while (i < s.length && (s[i] === '!' || s[i] === '?' || s[i] === '*' || /\d/.test(s[i]))) i++;
+      out.push(s.slice(start, i));
+    } else {
+      while (i < s.length && !/\s/.test(s[i]) && s[i] !== '[') i++;
+      const tok = s.slice(start, i);
+      if (tok && tok !== '|') out.push(tok);
+    }
+  }
+  return out;
+}
+
+function parse(text) {
+  const result = { bpm: DEFAULT_BPM, channels: [], errors: [] };
+
+  const rawLines = text.split('\n');
+  const lines = [];
+  const lineNumbers = [];
+  for (let ri = 0; ri < rawLines.length; ri++) {
+    const raw = rawLines[ri];
+    const stripped = raw.replace(/--.*$/, '');
+    if (stripped.match(/^[ \t]+\S/) && lines.length > 0) {
+      lines[lines.length - 1] += ' ' + stripped.trim();
+    } else {
+      lines.push(stripped);
+      lineNumbers.push(ri + 1);
+    }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i];
+    const line = raw.replace(/--.*$/, '').trim();
+    if (!line) continue;
+
+    try {
+      const bpmMatch = line.match(/^bpm\s+(\d+\.?\d*k?)$/i);
+      if (bpmMatch) {
+        result.bpm = parseNum(bpmMatch[1]);
+        if (result.bpm < 20 || result.bpm > 999) {
+          result.errors.push({ line: lineNumbers[i], message: 'bpm must be 20-999' });
+          result.bpm = Math.max(20, Math.min(999, result.bpm));
+        }
+        continue;
+      }
+
+      const tokens = line.split(/\s+/);
+      if (tokens.length < 3) continue;
+
+      const waveform = tokens[1].toLowerCase();
+      if (!WAVEFORMS.includes(waveform)) {
+        if (line.match(/^[a-zA-Z]/)) {
+          result.errors.push({ line: lineNumbers[i], message: `unknown waveform: ${tokens[1]}` });
+        }
+        continue;
+      }
+
+      if (result.channels.length >= MAX_CHANNELS) {
+        result.errors.push({ line: lineNumbers[i], message: 'maximum 8 channels' });
+        continue;
+      }
+
+      const name = tokens[0];
+
+      const colonIdx = line.indexOf(':');
+      const afterWaveform = line.match(/^\S+\s+\S+/)[0].length;
+      let patternStr, effectsStr;
+      if (colonIdx !== -1) {
+        patternStr = line.slice(afterWaveform, colonIdx).trim();
+        effectsStr = line.slice(colonIdx + 1).trim();
+      } else {
+        patternStr = line.slice(afterWaveform).trim();
+        effectsStr = '';
+      }
+
+      const patTokens = tokenizePattern(patternStr);
+      const pattern = [];
+      const MOD_RE = /(\*\d+|!|\?)/g;
+      for (const token of patTokens) {
+        const lc = token.toLowerCase();
+
+        let chordNotes = null;
+        let baseForMods = lc;
+        if (lc.startsWith('[')) {
+          const close = lc.indexOf(']');
+          if (close === -1) {
+            result.errors.push({ line: lineNumbers[i], message: `unclosed chord bracket in '${token}'` });
+            pattern.push(Step.rest());
+            continue;
+          }
+          chordNotes = lc.slice(1, close).trim().split(/\s+/).filter(Boolean);
+          baseForMods = '[]' + lc.slice(close + 1);
+        }
+
+        const parts = baseForMods.split(MOD_RE).filter(Boolean);
+        const base = parts[0];
+        const mods = parts.slice(1);
+
+        let hold = 1;
+        let vel = VEL_DEFAULT;
+        let modErr = null;
+        let seenAcc = false, seenGho = false, seenHold = false;
+        for (const m of mods) {
+          if (m === '!') {
+            if (seenAcc) { modErr = `duplicate accent in '${token}'`; break; }
+            if (seenGho) { modErr = `accent and ghost on same token: '${token}'`; break; }
+            seenAcc = true; vel = VEL_ACCENT;
+          } else if (m === '?') {
+            if (seenGho) { modErr = `duplicate ghost in '${token}'`; break; }
+            if (seenAcc) { modErr = `accent and ghost on same token: '${token}'`; break; }
+            seenGho = true; vel = VEL_GHOST;
+          } else if (m.startsWith('*')) {
+            if (seenHold) { modErr = `duplicate hold in '${token}'`; break; }
+            const n = parseInt(m.slice(1), 10);
+            if (!Number.isFinite(n) || n < 1) {
+              modErr = `hold count must be ≥ 1 in '${token}'`;
+              break;
+            }
+            seenHold = true; hold = n;
+          } else {
+            modErr = `unrecognized modifier '${m}' in '${token}'`;
+            break;
+          }
+        }
+        if (modErr) {
+          result.errors.push({ line: lineNumbers[i], message: modErr });
+          pattern.push(Step.rest());
+          continue;
+        }
+
+        if (chordNotes !== null) {
+          if (base !== '[]') {
+            result.errors.push({ line: lineNumbers[i], message: `unrecognized text after chord bracket in '${token}'` });
+            pattern.push(Step.rest());
+            continue;
+          }
+          if (chordNotes.length === 0) {
+            result.errors.push({ line: lineNumbers[i], message: `empty chord '${token}'` });
+            pattern.push(Step.rest());
+            continue;
+          }
+          if (chordNotes.length > MAX_CHORD_NOTES) {
+            result.errors.push({ line: lineNumbers[i], message: `chord exceeds ${MAX_CHORD_NOTES} notes: '${token}'` });
+            pattern.push(Step.rest());
+            continue;
+          }
+          if (waveform === 'noise') {
+            result.errors.push({ line: lineNumbers[i], message: `chord not allowed on noise channel: '${token}'` });
+            pattern.push(Step.rest());
+            continue;
+          }
+          const freqs = [];
+          let chordErr = null;
+          for (const n of chordNotes) {
+            const f = NOTE_FREQ[n];
+            if (f === undefined) {
+              chordErr = `unknown note in chord '${token}': ${n}`;
+              break;
+            }
+            freqs.push(f);
+          }
+          if (chordErr) {
+            result.errors.push({ line: lineNumbers[i], message: chordErr });
+            pattern.push(Step.rest());
+            continue;
+          }
+          if (freqs.length === 1) {
+            pattern.push(Step.note(freqs[0], chordNotes[0], vel, hold));
+          } else {
+            pattern.push(Step.chord(freqs, chordNotes, vel, hold));
+          }
+          for (let k = 1; k < hold; k++) pattern.push(Step.sustain());
+        } else if (base === '.' || base === '_') {
+          for (let k = 0; k < hold; k++) pattern.push(Step.rest());
+        } else if (base === 'x') {
+          pattern.push(Step.trigger(vel));
+          for (let k = 1; k < hold; k++) pattern.push(Step.sustain());
+        } else {
+          const freq = NOTE_FREQ[base];
+          if (freq !== undefined) {
+            pattern.push(Step.note(freq, base, vel, hold));
+            for (let k = 1; k < hold; k++) pattern.push(Step.sustain());
+          } else {
+            result.errors.push({ line: lineNumbers[i], message: `unknown note: ${token}` });
+            pattern.push(Step.rest());
+          }
+        }
+      }
+
+      if (pattern.length === 0) {
+        result.errors.push({ line: lineNumbers[i], message: 'empty pattern' });
+        continue;
+      }
+
+      const effects = { lpf: null, hpf: null, decay: null, vol: 1.0 };
+      if (effectsStr) {
+        const fxTokens = effectsStr.split(/\s+/);
+        for (let j = 0; j < fxTokens.length; j += 2) {
+          const fx = fxTokens[j].toLowerCase();
+          const val = parseNum(fxTokens[j + 1]);
+          if (!EFFECT_NAMES.has(fx)) {
+            result.errors.push({ line: lineNumbers[i], message: `unknown effect: ${fx}` });
+            continue;
+          }
+          if (!Number.isFinite(val)) {
+            result.errors.push({ line: lineNumbers[i], message: `invalid value for ${fx}` });
+            continue;
+          }
+          if (fx === 'lpf') effects.lpf = val;
+          else if (fx === 'hpf') effects.hpf = val;
+          else if (fx === 'decay') effects.decay = Math.max(0, val);
+          else if (fx === 'vol') effects.vol = Math.max(0, Math.min(1, val));
+        }
+      }
+
+      result.channels.push({ name, waveform, pattern, effects, headerLine: i });
+    } catch (e) {
+      result.errors.push({ line: lineNumbers[i], message: e.message });
+    }
+  }
+
+  return result;
+}
+
+// ── Audio engine ─────────────────────────────────────────────────────
+
+const LPF_OPEN = 20000;
+const HPF_OPEN = 0;
+
+let audioCtx = null;
+let noiseBuffer = null;
+let compressor = null;
+
+function ensureAudioCtx() {
+  if (!audioCtx) {
+    audioCtx = new AudioContext();
+    compressor = audioCtx.createDynamicsCompressor();
+    compressor.threshold.value = -12;
+    compressor.knee.value = 6;
+    compressor.ratio.value = 8;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.1;
+    compressor.connect(audioCtx.destination);
+    const size = audioCtx.sampleRate * 2;
+    noiseBuffer = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
+  }
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function createSource(waveform) {
+  if (waveform === 'noise') {
+    const s = audioCtx.createBufferSource();
+    s.buffer = noiseBuffer;
+    s.loop = true;
+    return s;
+  }
+  const s = audioCtx.createOscillator();
+  s.type = WAVEFORM_MAP[waveform];
+  s.frequency.value = 0;
+  return s;
+}
+
+function makeGain(value) {
+  const g = audioCtx.createGain();
+  g.gain.value = value;
+  return g;
+}
+
+function makeFilter(type, freq) {
+  const f = audioCtx.createBiquadFilter();
+  f.type = type;
+  f.Q.value = 0.707;
+  f.frequency.value = freq;
+  return f;
+}
+
+function chain(...nodes) {
+  for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1]);
+}
+
+function chordMaxPoly(pattern) {
+  let max = 1;
+  for (const s of pattern) {
+    if (s.type === 'chord' && s.freqs.length > max) max = s.freqs.length;
+  }
+  return max;
+}
+
+function createChannelNode(ch, registryKey) {
+  const source = createSource(ch.waveform);
+  const sourceGain = makeGain(1);
+  const envelopeGain = makeGain(0);
+  const filterHPF = makeFilter('highpass', ch.effects.hpf ?? HPF_OPEN);
+  const filterLPF = makeFilter('lowpass', ch.effects.lpf ?? LPF_OPEN);
+  const volumeGain = makeGain(ch.effects.vol);
+
+  chain(source, sourceGain, envelopeGain, filterHPF, filterLPF, volumeGain, compressor);
+  source.start();
+
+  const voices = [{ source, sourceGain }];
+  const node = {
+    source, sourceGain, envelopeGain,
+    filterLPF, filterHPF, volumeGain,
+    voices,
+    channel: ch, registryKey,
+    notBefore: 0,
+    stoppedAt: Infinity
+  };
+  if (ch.waveform !== 'noise') {
+    ensureVoices(node, chordMaxPoly(ch.pattern));
+  }
+  return node;
+}
+
+function ensureVoices(node, count) {
+  if (node.channel.waveform === 'noise') return;
+  while (node.voices.length < count) {
+    const src = createSource(node.channel.waveform);
+    const g = makeGain(0);
+    src.connect(g);
+    g.connect(node.envelopeGain);
+    src.start();
+    node.voices.push({ source: src, sourceGain: g });
+  }
+}
+
+function disconnectNode(node) {
+  for (const v of node.voices) {
+    try { v.source.stop(); } catch (e) {}
+    try { v.source.disconnect(); } catch (e) {}
+    try { v.sourceGain.disconnect(); } catch (e) {}
+  }
+  try { node.envelopeGain.disconnect(); } catch (e) {}
+  try { node.filterLPF.disconnect(); } catch (e) {}
+  try { node.filterHPF.disconnect(); } catch (e) {}
+  try { node.volumeGain.disconnect(); } catch (e) {}
+}
+
+function keysFor(channels) {
+  const counts = {};
+  const keys = [];
+  for (const ch of channels) {
+    counts[ch.name] = (counts[ch.name] || 0) + 1;
+    keys.push(counts[ch.name] === 1 ? ch.name : `${ch.name}#${counts[ch.name]}`);
+  }
+  return keys;
+}
+
+function routeVoices(node, s, t) {
+  const ch = node.channel;
+  if (ch.waveform === 'noise') return;
+  const tc = 0.005;
+  let freqs = null;
+  if (s.type === 'note') {
+    freqs = [s.freq];
+  } else if (s.type === 'chord') {
+    ensureVoices(node, s.freqs.length);
+    freqs = s.freqs;
+  }
+  const N = freqs ? freqs.length : 1;
+  const lvl = 1 / Math.sqrt(N);
+  for (let v = 0; v < node.voices.length; v++) {
+    const voice = node.voices[v];
+    if (v < N) {
+      if (freqs && voice.source.frequency) {
+        try { voice.source.frequency.setValueAtTime(freqs[v], t); } catch (e) {}
+      }
+      try { voice.sourceGain.gain.setTargetAtTime(lvl, t, tc); } catch (e) {}
+    } else {
+      try { voice.sourceGain.gain.setTargetAtTime(0, t, tc); } catch (e) {}
+    }
+  }
+}
+
+function scheduleStep(node, step, t, dur) {
+  const ch = node.channel;
+  const s = ch.pattern[step % ch.pattern.length];
+  if (s.type === 'sustain') return;
+  const g = node.envelopeGain.gain;
+  g.cancelScheduledValues(t);
+  if (s.type === 'rest') {
+    g.setValueAtTime(0, t);
+    return;
+  }
+  routeVoices(node, s, t);
+  const peak = s.vel ?? 1;
+  const holdDur = (s.hold ?? 1) * dur;
+  g.setValueAtTime(peak, t);
+  if (ch.effects.decay != null) {
+    g.exponentialRampToValueAtTime(0.001, t + ch.effects.decay);
+  } else {
+    g.setValueAtTime(peak, t + holdDur - 0.01);
+    g.linearRampToValueAtTime(0, t + holdDur);
+  }
+}
+
+class Scheduler {
+  constructor(audioCtx, nodes, stepDuration) {
+    this.ctx = audioCtx;
+    this.nodes = nodes;
+    this.dur = stepDuration;
+    this.step = 0;
+    this.t0 = 0;
+    this.tid = null;
+  }
+
+  start() {
+    this.t0 = this.ctx.currentTime;
+    this.step = 0;
+    this._workerTick = () => this.tick();
+    timerWorker.addEventListener('message', this._workerTick);
+    timerWorker.postMessage({ cmd: 'start', interval: TICK_MS });
+    this.tick();
+  }
+
+  stop() {
+    timerWorker.postMessage({ cmd: 'stop' });
+    if (this._workerTick) {
+      timerWorker.removeEventListener('message', this._workerTick);
+      this._workerTick = null;
+    }
+  }
+
+  getPhase() {
+    return (this.ctx.currentTime - this.t0) / this.dur;
+  }
+
+  getVisualStep() {
+    return Math.floor(this.getPhase());
+  }
+
+  tick() {
+    const ahead = this.ctx.currentTime + SCHEDULE_AHEAD;
+    while (this.t0 + this.step * this.dur < ahead) {
+      const t = this.t0 + this.step * this.dur;
+      for (const node of this.nodes) {
+        if (t >= node.notBefore && t < node.stoppedAt) {
+          scheduleStep(node, this.step, t, this.dur);
+        }
+      }
+      this.step++;
+    }
+  }
+}
+
+// ── Syntax highlighter (playhead-aware) ──────────────────────────────
+//
+// Same tokenizer/classifier as index.html's #highlight overlay, including
+// the .pt/data-ch/data-s wrapping the playhead needs. chIdx here just
+// counts header-shaped lines in order (unlike index.html's headerLine-based
+// mapping) — safe because every block on this page is a curated, verified-
+// valid example; nothing here gets silently dropped by the parser the way
+// a live-edited document in the real editor could.
+
+function span(cls, text) { return `<span class="${cls}">${escHtml(text)}</span>`; }
+
+function highlightTokens(code, comment, chIdx, stepCounter) {
+  const colonIdx = code.indexOf(':');
+  const patPart = colonIdx !== -1 ? code.slice(0, colonIdx) : code;
+  const fxPart = colonIdx !== -1 ? code.slice(colonIdx) : '';
+  let out = '';
+  const ch = chIdx !== undefined ? chIdx : null;
+
+  const chunks = [];
+  {
+    let i = 0;
+    while (i < patPart.length) {
+      if (/\s/.test(patPart[i])) {
+        const start = i;
+        while (i < patPart.length && /\s/.test(patPart[i])) i++;
+        chunks.push({ kind: 'ws', text: patPart.slice(start, i) });
+      } else if (patPart[i] === '[') {
+        const start = i;
+        i++;
+        while (i < patPart.length && patPart[i] !== ']') i++;
+        if (i < patPart.length) i++;
+        while (i < patPart.length && (patPart[i] === '!' || patPart[i] === '?' || patPart[i] === '*' || /\d/.test(patPart[i]))) i++;
+        chunks.push({ kind: 'chord', text: patPart.slice(start, i) });
+      } else {
+        const start = i;
+        while (i < patPart.length && !/\s/.test(patPart[i]) && patPart[i] !== '[') i++;
+        chunks.push({ kind: 'tok', text: patPart.slice(start, i) });
+      }
+    }
+  }
+
+  for (const chunk of chunks) {
+    if (chunk.kind === 'ws') { out += escHtml(chunk.text); continue; }
+    const ct = chunk.text;
+    const low = ct.toLowerCase();
+    if (chunk.kind === 'tok' && (low === '|' || low === ',')) {
+      out += span('bl', ct); continue;
+    }
+
+    const parts = low.split(/(\*\d+|!|\?)/).filter(Boolean);
+    const base = parts[0];
+    const modParts = parts.slice(1);
+
+    let displayHold = 1, seenAcc = false, seenGho = false, seenHold = false;
+    let modsValid = true;
+    for (const m of modParts) {
+      if (m === '!') {
+        if (seenAcc || seenGho) { modsValid = false; break; }
+        seenAcc = true;
+      } else if (m === '?') {
+        if (seenAcc || seenGho) { modsValid = false; break; }
+        seenGho = true;
+      } else if (m.startsWith('*')) {
+        if (seenHold) { modsValid = false; break; }
+        const n = parseInt(m.slice(1), 10);
+        if (!Number.isFinite(n) || n < 1) { modsValid = false; break; }
+        seenHold = true; displayHold = n;
+      } else {
+        modsValid = false; break;
+      }
+    }
+
+    const baseText = ct.slice(0, base.length);
+    const modsText = ct.slice(base.length);
+
+    let inner = '';
+    let baseValid = true;
+    if (chunk.kind === 'chord') {
+      if (!base.endsWith(']') || base.length < 2) {
+        baseValid = false;
+        inner = `<span class="er">${escHtml(baseText)}</span>`;
+      } else {
+        const payload = baseText.slice(1, -1);
+        const noteParts = payload.split(/(\s+)/);
+        const noteList = noteParts.filter(p => p && !/^\s+$/.test(p));
+        if (noteList.length === 0) baseValid = false;
+        else for (const n of noteList) {
+          if (NOTE_FREQ[n.toLowerCase()] === undefined) { baseValid = false; break; }
+        }
+        let chordInner = '<span class="bl">[</span>';
+        for (const p of noteParts) {
+          if (!p) continue;
+          if (/^\s+$/.test(p)) chordInner += escHtml(p);
+          else if (NOTE_FREQ[p.toLowerCase()] !== undefined) chordInner += `<span class="nt">${escHtml(p)}</span>`;
+          else chordInner += `<span class="er">${escHtml(p)}</span>`;
+        }
+        chordInner += '<span class="bl">]</span>';
+        inner = chordInner;
+      }
+    } else {
+      let baseCls;
+      if (base === '.' || base === '_') baseCls = 'rs';
+      else if (base === 'x') baseCls = 'tr';
+      else if (NOTE_FREQ[base] !== undefined) baseCls = 'nt';
+      else { baseCls = 'er'; baseValid = false; }
+      inner = `<span class="${baseCls}">${escHtml(baseText)}</span>`;
+    }
+
+    if (modsText) {
+      inner += `<span class="${modsValid ? 'md' : 'er'}">${escHtml(modsText)}</span>`;
+    }
+
+    const s = (stepCounter && ch !== null) ? stepCounter.n : null;
+    const slotCount = (modsValid && baseValid) ? displayHold : 1;
+    if (ch !== null && s !== null) {
+      const h = slotCount > 1 ? ` data-h="${slotCount}"` : '';
+      out += `<span class="pt" data-ch="${ch}" data-s="${s}"${h}>${inner}</span>`;
+    } else {
+      out += inner;
+    }
+    if (stepCounter) stepCounter.n += slotCount;
+  }
+
+  if (fxPart) {
+    out += span('co', ':');
+    const fxBody = fxPart.slice(1);
+    const fxTokens = fxBody.split(/(\s+)/);
+    for (const ft of fxTokens) {
+      if (ft === '') continue;
+      if (ft.match(/^\s+$/)) out += escHtml(ft);
+      else if (EFFECT_NAMES.has(ft.toLowerCase())) out += span('fx', ft);
+      else if (NUM_RE.test(ft)) out += span('nu', ft);
+      else out += span('er', ft);
+    }
+  }
+
+  return out + (comment ? span('cm', comment) : '');
+}
+
+function highlightLine(line, prevIsChannel, chIdx, stepCounter) {
+  const commentIdx = line.indexOf('--');
+  let code = line, comment = '';
+  if (commentIdx !== -1) { code = line.slice(0, commentIdx); comment = line.slice(commentIdx); }
+  if (!code.trim()) return escHtml(code) + (comment ? span('cm', comment) : '');
+  const trimmed = code.trim();
+
+  if (code.match(/^[ \t]+\S/) && prevIsChannel) {
+    const lead = code.match(/^(\s*)/)[1];
+    return escHtml(lead) + highlightTokens(code.trimStart(), comment, chIdx, stepCounter);
+  }
+
+  if (trimmed.match(/^bpm\s/i)) {
+    const parts = trimmed.split(/(\s+)/);
+    let out = '';
+    const lead = code.match(/^(\s*)/)[1];
+    out += escHtml(lead);
+    out += span('kw', parts[0]);
+    for (let i = 1; i < parts.length; i++) {
+      out += parts[i].match(/\s/) ? escHtml(parts[i]) : span('nu', parts[i]);
+    }
+    return out + (comment ? span('cm', comment) : '');
+  }
+
+  const tokens = trimmed.split(/\s+/);
+  if (tokens.length >= 2 && WAVEFORMS.includes(tokens[1].toLowerCase())) {
+    const lead = code.match(/^(\s*)/)[1];
+    let out = escHtml(lead);
+    const codeTokens = code.trimStart().split(/(\s+)/);
+    let headerDone = false, tokenIdx = 0, restStart = 0;
+    for (const ct of codeTokens) {
+      if (ct.match(/^\s+$/)) { out += escHtml(ct); restStart += ct.length; continue; }
+      if (tokenIdx === 0) out += span('nm', ct);
+      else if (tokenIdx === 1) { out += span('wf', ct); headerDone = true; }
+      restStart += ct.length;
+      tokenIdx++;
+      if (headerDone) break;
+    }
+    const remainder = code.trimStart().slice(restStart);
+    if (remainder.trim()) out += highlightTokens(remainder, '', chIdx, stepCounter);
+    return out + (comment ? span('cm', comment) : '');
+  }
+
+  return escHtml(code) + (comment ? span('cm', comment) : '');
+}
+
+function highlightBlock(wrapEl) {
+  const text = wrapEl._humSrc;
+  const lines = text.split('\n');
+  let prevIsChannel = false;
+  let chIdx = -1;
+  let stepCounter = null;
+  const out = [];
+  for (const line of lines) {
+    const trimmed = line.replace(/--.*$/, '').trim();
+    const tokens = trimmed.split(/\s+/);
+    if (tokens.length >= 2 && WAVEFORMS.includes((tokens[1] || '').toLowerCase())) {
+      chIdx++;
+      stepCounter = { n: 0 };
+      prevIsChannel = true;
+    } else if (line.match(/^[ \t]+\S/) && prevIsChannel) {
+      // continuation
+    } else {
+      prevIsChannel = false;
+      stepCounter = null;
+    }
+    out.push(highlightLine(line, prevIsChannel, chIdx, stepCounter));
+  }
+  const pre = wrapEl.querySelector('pre.code');
+  pre.innerHTML = out.join('\n');
+
+  const stepSpanMap = {};
+  for (const el of pre.querySelectorAll('.pt')) {
+    const start = parseInt(el.dataset.s, 10);
+    const hold = parseInt(el.dataset.h || '1', 10);
+    for (let k = 0; k < hold; k++) {
+      stepSpanMap[el.dataset.ch + '-' + (start + k)] = el;
+    }
+  }
+  wrapEl._stepSpanMap = stepSpanMap;
+}
+
+// ── Play controller ───────────────────────────────────────────────────
+// Only one block plays at a time — starting a new one tears down whatever
+// was playing, same single-document assumption the real app makes.
+
+let current = null; // { nodes, scheduler, wrapEl, btnEl, statusEl, stepSpanMap }
+
+function teardownNodes(nodes) {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+  for (const node of nodes) {
+    try {
+      node.envelopeGain.gain.cancelScheduledValues(0);
+      node.envelopeGain.gain.setValueAtTime(0, now);
+    } catch (e) {}
+    disconnectNode(node);
+  }
+}
+
+function stopCurrent() {
+  if (!current) return;
+  current.scheduler.stop();
+  teardownNodes(current.nodes);
+  for (const el of current.wrapEl.querySelectorAll('.pt.playing')) el.classList.remove('playing');
+  current.btnEl.textContent = 'play';
+  current.btnEl.classList.remove('playing');
+  current.statusEl.classList.remove('show');
+  current = null;
+}
+
+function buildGraphFor(hum) {
+  const keys = keysFor(hum.channels);
+  const nodes = [];
+  for (let i = 0; i < hum.channels.length; i++) {
+    const node = createChannelNode(hum.channels[i], keys[i]);
+    node._idx = i;
+    nodes.push(node);
+  }
+  return nodes;
+}
+
+async function toggleWrap(wrapEl) {
+  if (current && current.wrapEl === wrapEl) { stopCurrent(); return; }
+
+  ensureAudioCtx();
+  await audioCtx.resume();
+
+  const hum = parse(wrapEl._humSrc);
+  if (hum.channels.length === 0) return;
+
+  stopCurrent();
+
+  const nodes = buildGraphFor(hum);
+  const scheduler = new Scheduler(audioCtx, nodes, 60 / hum.bpm / 2);
+  scheduler.start();
+
+  const btnEl = wrapEl.querySelector('.play-btn');
+  const statusEl = wrapEl.querySelector('.status');
+  current = { nodes, scheduler, wrapEl, btnEl, statusEl, stepSpanMap: wrapEl._stepSpanMap };
+  btnEl.textContent = 'stop';
+  btnEl.classList.add('playing');
+  statusEl.textContent = `bpm ${hum.bpm}`;
+  statusEl.classList.add('show');
+}
+
+let prevPlayingEls = [];
+function tickPlayhead() {
+  if (current) {
+    const vs = current.scheduler.getVisualStep();
+    for (const el of prevPlayingEls) el.classList.remove('playing');
+    prevPlayingEls = [];
+    for (const node of current.nodes) {
+      const ch = node.channel;
+      const key = node._idx + '-' + (vs % ch.pattern.length);
+      const el = current.stepSpanMap[key];
+      if (el) { el.classList.add('playing'); prevPlayingEls.push(el); }
+    }
+  }
+  requestAnimationFrame(tickPlayhead);
+}
+
+// ── Init ────────────────────────────────────────────────────────────
+
+for (const wrapEl of document.querySelectorAll('.code-wrap')) {
+  const pre = wrapEl.querySelector('pre.code');
+  wrapEl._humSrc = pre.textContent;
+  highlightBlock(wrapEl);
+  wrapEl.querySelector('.play-btn').addEventListener('click', () => toggleWrap(wrapEl));
+}
+
+requestAnimationFrame(tickPlayhead);
+</script>
+</body>
+</html>
