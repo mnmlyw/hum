@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/parser.test.js",
+    "test": "node --test tests/parser.test.js tests/live-update.test.js",
     "test:all": "npm run lint && npm run check:spec && npm run preset:check && npm test",
     "check:spec": "node tools/check-spec.js",
     "preset:embed": "node tools/embed-presets.js",
