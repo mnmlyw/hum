@@ -17,11 +17,11 @@ const checks = [
     assert.match(html, /new Worker\(/, 'SPEC claims Web Worker timer; no `new Worker(` in code');
   }],
 
-  ['Tick interval = 25ms, lookahead = 150ms', () => {
+  ['Tick interval = 25ms, lookahead = 200ms', () => {
     assert.match(spec, /25\s*ms tick/i);
-    assert.match(spec, /150\s*ms lookahead/i);
+    assert.match(spec, /200\s*ms lookahead/i);
     assert.match(html, /TICK_MS\s*=\s*25\b/, 'SPEC says 25ms tick; constant differs');
-    assert.match(html, /SCHEDULE_AHEAD\s*=\s*0\.15\b/, 'SPEC says 150ms lookahead; constant differs');
+    assert.match(html, /SCHEDULE_AHEAD\s*=\s*0\.2\b/, 'SPEC says 200ms lookahead; constant differs');
   }],
 
   ['Max channels = 8', () => {
