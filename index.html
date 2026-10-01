@@ -1487,6 +1487,103 @@ function keysFor(channels) {
   return keys;
 }
 
+// ── Live update planning (pure) ─────────────────────────────────────
+//
+// humKey fingerprints a parsed hum so liveUpdate can skip no-op edits.
+// planLiveUpdate diffs the new hum against the current graph registry and
+// returns an action plan — no Web Audio side effects. Node tests import
+// these via the same index.html extraction pattern as the parser suite.
+
+function humKey(hum) {
+  return hum.bpm + '|' + hum.channels.map(c =>
+    c.name + c.waveform +
+    c.pattern.map(s => {
+      // Velocity (accent !, ghost ?) must be part of the key — it's the only
+      // per-step field that doesn't already change the pattern's shape, so
+      // omitting it would make liveUpdate treat an accent/ghost-only edit as
+      // a no-op and silently drop it.
+      if (s.type === 'note') return s.freq + '@' + s.vel;
+      if (s.type === 'chord') return '[' + s.freqs.join('+') + ']@' + s.vel;
+      if (s.type === 'trigger') return 'x@' + s.vel;
+      return s.type;
+    }).join(',') +
+    JSON.stringify(c.effects)
+  ).join('|');
+}
+
+// Next step boundary beyond the scheduler lookahead, with a small safety margin
+// so a mutation lands on a fresh step the scheduler hasn't written yet.
+function nextBoundaryAt(now, t0, dur, scheduleAhead) {
+  const safe = now + scheduleAhead + 0.02;
+  const phase = (safe - t0) / dur;
+  const boundaryStep = Math.ceil(phase);
+  return t0 + boundaryStep * dur;
+}
+
+// Diff a parsed hum against the live graph registry. Returns { action: 'skip' }
+// or { action: 'apply', ...plan }. `nodes` is [{ registryKey, waveform }].
+function planLiveUpdate({ lastKey, hum, nodes, now, t0, dur, scheduleAhead }) {
+  const key = humKey(hum);
+  if (key === lastKey) return { action: 'skip', reason: 'unchanged' };
+  // Suppress audio diff while source is broken or empty; keep playing current graph.
+  if (hum.channels.length === 0 || hum.errors.length > 0) {
+    return { action: 'skip', reason: 'invalid', key };
+  }
+
+  const newDur = 60 / hum.bpm / 2;
+  const tempoChange = dur != null && Math.abs(newDur - dur) > 1e-9 ? newDur : null;
+
+  const newKeys = keysFor(hum.channels);
+  const newKeySet = new Set(newKeys);
+  const oldKeySet = new Set(nodes.map(n => n.registryKey));
+  const nodeByKey = new Map(nodes.map(n => [n.registryKey, n]));
+
+  // Match Scheduler.rebaseForTempo: preserve the current fractional step
+  // before choosing the boundary for a simultaneous channel/tempo edit.
+  const boundaryT0 = tempoChange ? now - (now - t0) / dur * newDur : t0;
+  const boundary = nextBoundaryAt(now, boundaryT0, newDur, scheduleAhead);
+
+  const removals = nodes
+    .filter(n => !newKeySet.has(n.registryKey))
+    .map(n => n.registryKey);
+
+  const swaps = [];
+  const updates = [];
+  for (let i = 0; i < hum.channels.length; i++) {
+    const k = newKeys[i];
+    const newCh = hum.channels[i];
+    const node = nodeByKey.get(k);
+    if (!node) continue;
+    if (node.waveform !== newCh.waveform) {
+      swaps.push({ registryKey: k, newWaveform: newCh.waveform });
+    }
+    updates.push({ registryKey: k, channel: newCh });
+  }
+
+  const additions = [];
+  for (let i = 0; i < hum.channels.length; i++) {
+    const k = newKeys[i];
+    if (!oldKeySet.has(k)) {
+      additions.push({ registryKey: k, channel: hum.channels[i] });
+    }
+  }
+
+  const structuralChange = removals.length > 0 || additions.length > 0 || swaps.length > 0;
+
+  return {
+    action: 'apply',
+    key,
+    tempoChange,
+    boundary,
+    removals,
+    swaps,
+    additions,
+    updates,
+    channelOrder: newKeys,
+    structuralChange,
+  };
+}
+
 function buildGraph(hum) {
   teardownGraph();
   const keys = keysFor(hum.channels);
@@ -2314,31 +2411,8 @@ function onInput() {
 
 let lastParseKey = '';
 
-function humKey(hum) {
-  return hum.bpm + '|' + hum.channels.map(c =>
-    c.name + c.waveform +
-    c.pattern.map(s => {
-      // Velocity (accent !, ghost ?) must be part of the key — it's the only
-      // per-step field that doesn't already change the pattern's shape, so
-      // omitting it would make liveUpdate treat an accent/ghost-only edit as
-      // a no-op and silently drop it.
-      if (s.type === 'note') return s.freq + '@' + s.vel;
-      if (s.type === 'chord') return '[' + s.freqs.join('+') + ']@' + s.vel;
-      if (s.type === 'trigger') return 'x@' + s.vel;
-      return s.type;
-    }).join(',') +
-    JSON.stringify(c.effects)
-  ).join('|');
-}
-
-// Next step boundary beyond the scheduler lookahead, with a small safety margin
-// so our mutation lands on a fresh step the scheduler hasn't written yet.
 function nextBoundary() {
-  const now = audioCtx.currentTime;
-  const safe = now + SCHEDULE_AHEAD + 0.02;
-  const phase = (safe - scheduler.t0) / scheduler.dur;
-  const boundaryStep = Math.ceil(phase);
-  return scheduler.t0 + boundaryStep * scheduler.dur;
+  return nextBoundaryAt(audioCtx.currentTime, scheduler.t0, scheduler.dur, SCHEDULE_AHEAD);
 }
 
 function swapWaveform(node, newWaveform, applyAt) {
@@ -2453,57 +2527,48 @@ function applyEffectDeltas(node, newCh) {
 }
 
 function liveUpdate(hum) {
-  const key = humKey(hum);
-  if (key === lastParseKey) return;
-  // Suppress audio diff while source is broken or empty; keep playing current graph.
-  if (hum.channels.length === 0 || hum.errors.length > 0) return;
-  lastParseKey = key;
+  const plan = planLiveUpdate({
+    lastKey: lastParseKey,
+    hum,
+    nodes: channelNodes.map(n => ({ registryKey: n.registryKey, waveform: n.channel.waveform })),
+    now: audioCtx.currentTime,
+    t0: scheduler.t0,
+    dur: scheduler.dur,
+    scheduleAhead: SCHEDULE_AHEAD,
+  });
+  if (plan.action === 'skip') return;
+  lastParseKey = plan.key;
 
   // 1. Tempo — rebase phase before anything else so subsequent boundary math uses new dur.
-  const newDur = 60 / hum.bpm / 2;
-  if (scheduler && Math.abs(newDur - scheduler.dur) > 1e-9) {
-    scheduler.rebaseForTempo(newDur);
+  if (plan.tempoChange && scheduler) {
+    scheduler.rebaseForTempo(plan.tempoChange);
   }
 
-  const newKeys = keysFor(hum.channels);
-  const newKeySet = new Set(newKeys);
-  const oldKeySet = new Set(channelNodes.map(n => n.registryKey));
+  const boundary = plan.tempoChange ? nextBoundary() : plan.boundary;
 
   // 2. Remove channels no longer present (quantized to next boundary).
-  const boundary = nextBoundary();
-  let structuralChange = false;
-  for (const node of [...channelNodes]) {
-    if (!newKeySet.has(node.registryKey)) {
-      removeChannel(node, boundary);
-      structuralChange = true;
-    }
+  for (const registryKey of plan.removals) {
+    const node = channelNodesByName.get(registryKey);
+    if (node) removeChannel(node, boundary);
   }
 
   // 3. Survivors: update pattern/effects in place now; queue waveform swap at boundary.
-  const swaps = [];
-  for (let i = 0; i < hum.channels.length; i++) {
-    const key = newKeys[i];
-    const newCh = hum.channels[i];
-    const node = channelNodesByName.get(key);
-    if (!node) continue; // added below
-    if (node.channel.waveform !== newCh.waveform) swaps.push({ node, newCh });
-    applyEffectDeltas(node, newCh);
-    node.channel = newCh;
+  for (const { registryKey, channel } of plan.updates) {
+    const node = channelNodesByName.get(registryKey);
+    if (!node) continue;
+    applyEffectDeltas(node, channel);
+    node.channel = channel;
   }
 
   // 4. Add new channels at the boundary; ordering is finalized by step 5.
-  for (let i = 0; i < hum.channels.length; i++) {
-    const key = newKeys[i];
-    if (!oldKeySet.has(key)) {
-      addChannel(hum.channels[i], key, boundary);
-      structuralChange = true;
-    }
+  for (const { registryKey, channel } of plan.additions) {
+    addChannel(channel, registryKey, boundary);
   }
 
   // 5. Rebuild channelNodes in parse order so visual chIdx aligns and the
   //    scheduler iterates in a deterministic sequence.
   channelNodes.length = 0;
-  for (const k of newKeys) {
+  for (const k of plan.channelOrder) {
     const node = channelNodesByName.get(k);
     if (node) channelNodes.push(node);
   }
@@ -2511,10 +2576,9 @@ function liveUpdate(hum) {
   // 6. Apply waveform swaps + rewind scheduler so the boundary step onward is
   //    rewritten against the new graph (ensures new channels fire on boundary
   //    and removed channels don't).
-  if (swaps.length > 0) structuralChange = true;
-  if (structuralChange) scheduler.rewindTo(boundary);
-  for (const { node, newCh } of swaps) {
-    swapWaveform(node, newCh.waveform, boundary);
+  if (plan.structuralChange && scheduler) scheduler.rewindTo(boundary);
+  for (const { registryKey, newWaveform } of plan.swaps) {
+    swapWaveform(channelNodesByName.get(registryKey), newWaveform, boundary);
   }
 }
 
@@ -2756,6 +2820,9 @@ document.addEventListener('keydown', (e) => {
 //
 // Contract (when ?test=1):
 //   parse(text)               — pure parser; same as the live parser.
+//   humKey(hum)               — fingerprint for live-update dedup.
+//   planLiveUpdate(opts)      — pure diff planner; returns skip/apply plan.
+//   nextBoundaryAt(...)       — step-boundary math for structural edits.
 //   applyEdit(text)           — set editor + run onInput synchronously,
 //                               bypassing the 300ms debounce.
 //   LPF_OPEN, HPF_OPEN,       — runtime constants tests assert against.
@@ -2770,6 +2837,9 @@ document.addEventListener('keydown', (e) => {
 if (new URLSearchParams(location.search).has('test')) {
   window.__hum = {
     parse,
+    humKey,
+    planLiveUpdate,
+    nextBoundaryAt,
     LPF_OPEN, HPF_OPEN, SCHEDULE_AHEAD,
     get audioCtx() { return audioCtx; },
     get analyser() { return analyserNode; },
