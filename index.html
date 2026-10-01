@@ -1433,6 +1433,7 @@ function createChannelNode(ch, registryKey) {
     filterLPF, filterHPF, volumeGain, meter,
     voices,
     env: [],           // mirror of envelopeGain's automation timeline (see envEvent)
+    lastFreqs: null,   // per-voice pitches of the last scheduled note/chord (see retunes)
     channel: ch, registryKey,
     notBefore: 0,      // scheduler skips steps where t < notBefore
     stoppedAt: Infinity // scheduler skips steps where t >= stoppedAt
@@ -1626,6 +1627,15 @@ function routeVoices(node, s, t) {
   }
 }
 
+// Would this step change the pitch of a voice that the previous note/chord
+// left sounding? Newly enabled chord voices don't count — they start muted.
+function retunes(node, s) {
+  const prev = node.lastFreqs;
+  if (!prev || node.channel.waveform === 'noise') return false;
+  const freqs = s.type === 'note' ? [s.freq] : s.type === 'chord' ? s.freqs : null;
+  return !!freqs && freqs.some((f, v) => v < prev.length && prev[v] !== f);
+}
+
 // Write one pattern step's envelope (and per-voice frequency/gain for pitched
 // notes/chords) at time t.
 function scheduleStep(node, step, t, dur) {
@@ -1635,6 +1645,16 @@ function scheduleStep(node, step, t, dur) {
   // scheduled the envelope for the full hold duration. Doing nothing here
   // is what lets a held note ring through subsequent slots without retrigger.
   if (s.type === 'sustain') return;
+  // Channels are monophonic, so a tail still ringing at t (decay longer than
+  // a step) would be retuned mid-sound — an audible pitch jump. Fade it to
+  // silence over ENV_RELEASE ending at t so the new pitch starts from zero,
+  // the same end-of-note fade non-decay notes already get. Same-pitch
+  // retriggers skip this and attack from the held level instead.
+  const fadeFrom = Math.max(t - ENV_RELEASE, audioCtx.currentTime);
+  if (s.type !== 'rest' && fadeFrom < t && retunes(node, s)) {
+    holdEnvelopeAt(node, fadeFrom);
+    envEvent(node, 'lin', 0, t);
+  }
   // Freeze whatever the previous step left at t (possibly mid-decay), so
   // every transition below ramps from the real current level, never jumps.
   holdEnvelopeAt(node, t);
@@ -1643,6 +1663,10 @@ function scheduleStep(node, step, t, dur) {
     return;
   }
   routeVoices(node, s, t);
+  // Triggers keep voice 0's pitch and mute the chord voices.
+  if (s.type === 'note') node.lastFreqs = [s.freq];
+  else if (s.type === 'chord') node.lastFreqs = s.freqs;
+  else if (node.lastFreqs) node.lastFreqs = node.lastFreqs.slice(0, 1);
   // Velocity scales the envelope peak. Default = 1.0 (backward-compatible),
   // accent = 1.5 (compressor absorbs headroom), ghost = 0.4.
   const peak = s.vel ?? 1;
