@@ -119,15 +119,17 @@ Is equivalent to `lead tri c4 e4 g4 c5 g4 e4 c4 . : vol .5`. Comments are stripp
 - Polyphony: chord steps grow a per-channel pool of extra oscillators (voice 1+) that sum into `envelopeGain` in parallel with the primary `source`. Each voice plays at `1/√N` to keep chord loudness comparable to a single note. Non-chord steps mute voices 1+.
 - Noise: looped `AudioBufferSourceNode` (2s random buffer)
 - `DynamicsCompressorNode` on master bus prevents clipping
-- Short ramps and crossfades at gain transitions to suppress clicks: 5 ms equal-power crossfade on waveform swap, 10 ms `setTargetAtTime` ramps on effect-value changes, end-of-step linear fade to 0 over the last 10 ms of each non-decay note, 3 ms attack on the master `DynamicsCompressorNode`. Note onsets themselves are instantaneous (`setValueAtTime(1, t)`).
+- Short ramps and crossfades at gain transitions to suppress clicks: 5 ms linear crossfade on waveform swap, 10 ms `setTargetAtTime` ramps on effect-value changes, 3 ms linear attack at every note onset, end-of-step linear fade to 0 over the last 10 ms of each non-decay note, 10 ms linear fade to 0 on rests, 3 ms attack on the master `DynamicsCompressorNode`. When a step (or a live edit) lands while the previous note is still sounding — e.g. a `decay` longer than a step — the envelope is held at its current value and ramped from there rather than jumping; if that step changes pitch, the tail first fades to 0 over the 10 ms before the step so the oscillator never retunes mid-sound
+- Audio interruptions (iOS backgrounding, calls, another app taking audio) are detected via `AudioContext` `statechange`; the play button reads "resume" and the context is resumed on return to foreground or the next touch/key press
 
 ## Scheduler
 
 - Chris Wilson lookahead pattern: JS timer schedules Web Audio events ahead of time
 - `setInterval` runs in a Web Worker (immune to background tab throttling)
-- 25ms tick interval, 150ms lookahead window
+- 25ms tick interval, 200ms lookahead window
+- Steps whose time has already passed when a tick runs (main-thread stall longer than the lookahead) are skipped, not fired late in a burst
 - Step times computed from base (`startTime + step * stepDuration`), no accumulation drift
-- First tick fires synchronously after `scheduler.start()`, filling the full 150 ms lookahead before control returns to the user
+- First tick fires synchronously after `scheduler.start()`, filling the full 200 ms lookahead before control returns to the user
 
 ## Editor
 

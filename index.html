@@ -949,7 +949,7 @@ const WAVEFORM_MAP = { sin:'sine', tri:'triangle', sqr:'square', saw:'sawtooth' 
 const WAVEFORMS = ['sin','tri','sqr','saw','noise'];
 const MAX_CHANNELS = 8;
 const DEFAULT_BPM = 120;
-const SCHEDULE_AHEAD = 0.15;
+const SCHEDULE_AHEAD = 0.2;
 const TICK_MS = 25;
 
 // Web Worker for timer — immune to background tab throttling
@@ -1333,6 +1333,7 @@ function ensureAudioCtx() {
     compressor.attack.value = 0.003;
     compressor.release.value = 0.1;
     compressor.connect(audioCtx.destination);
+    audioCtx.onstatechange = onAudioStateChange;
     analyserNode = audioCtx.createAnalyser();
     analyserNode.fftSize = 2048;
     analyserNode.connect(compressor);
@@ -1342,6 +1343,25 @@ function ensureAudioCtx() {
     for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
   }
   if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+// The OS can pull the context out from under us — iOS suspends or
+// 'interrupt's it on backgrounding, phone calls, Siri, or another app taking
+// the audio session. currentTime freezes while it isn't running, so the
+// scheduler just idles (no burst of catch-up notes); we only have to get the
+// context running again and show the user that playback is paused.
+function audioInterrupted() {
+  return !!audioCtx && audioCtx.state !== 'running' && audioCtx.state !== 'closed';
+}
+
+function tryResumeAudio() {
+  if (isPlaying && audioInterrupted()) audioCtx.resume().catch(() => {});
+}
+
+function onAudioStateChange() {
+  if (!isPlaying) return;
+  playBtn.textContent = audioInterrupted() ? 'resume' : 'stop';
+  tryResumeAudio();
 }
 
 function createSource(waveform) {
@@ -1412,6 +1432,8 @@ function createChannelNode(ch, registryKey) {
     source, sourceGain, envelopeGain,
     filterLPF, filterHPF, volumeGain, meter,
     voices,
+    env: [],           // mirror of envelopeGain's automation timeline (see envEvent)
+    lastFreqs: null,   // per-voice pitches of the last scheduled note/chord (see retunes)
     channel: ch, registryKey,
     notBefore: 0,      // scheduler skips steps where t < notBefore
     stoppedAt: Infinity // scheduler skips steps where t >= stoppedAt
@@ -1516,7 +1538,10 @@ function planLiveUpdate({ lastKey, hum, nodes, now, t0, dur, scheduleAhead }) {
   const oldKeySet = new Set(nodes.map(n => n.registryKey));
   const nodeByKey = new Map(nodes.map(n => [n.registryKey, n]));
 
-  const boundary = nextBoundaryAt(now, t0, dur ?? newDur, scheduleAhead);
+  // Match Scheduler.rebaseForTempo: preserve the current fractional step
+  // before choosing the boundary for a simultaneous channel/tempo edit.
+  const boundaryT0 = tempoChange ? now - (now - t0) / dur * newDur : t0;
+  const boundary = nextBoundaryAt(now, boundaryT0, newDur, scheduleAhead);
 
   const removals = nodes
     .filter(n => !newKeySet.has(n.registryKey))
@@ -1597,11 +1622,69 @@ function teardownGraph() {
 
 // ── Scheduler ───────────────────────────────────────────────────────
 
+const ENV_ATTACK = 0.003;   // linear fade-in at every note onset
+const ENV_RELEASE = 0.01;   // linear fade-out at note end and on rests
+
+// Every envelopeGain write goes through envEvent so node.env mirrors the
+// AudioParam's timeline as [{ t, v, kind }] — kind is 'set' (setValueAtTime),
+// 'lin' or 'exp' (a ramp *ending* at t). The mirror lets us compute the
+// envelope's value at any time without reading the AudioParam, which only
+// reports its current value.
+function envEvent(node, kind, v, t) {
+  const g = node.envelopeGain.gain;
+  if (kind === 'lin') g.linearRampToValueAtTime(v, t);
+  else if (kind === 'exp') g.exponentialRampToValueAtTime(v, t);
+  else g.setValueAtTime(v, t);
+  node.env.push({ t, v, kind });
+}
+
+function envValueAt(env, t) {
+  let i = 0;
+  while (i < env.length && env[i].t <= t) i++;
+  const p = env[i - 1];
+  const q = env[i];
+  if (!p) return 0;  // envelopeGain starts at 0 with no events
+  if (!q || q.kind === 'set') return p.v;
+  const frac = (t - p.t) / (q.t - p.t);
+  if (q.kind === 'lin') return p.v + (q.v - p.v) * frac;
+  if (p.v <= 0 || q.v <= 0) return p.v;
+  return p.v * Math.pow(q.v / p.v, frac);
+}
+
+// Portable cancelAndHoldAtTime: drop envelope events at/after t but keep the
+// curve exactly as scheduled up to t. Plain cancelScheduledValues(t) deletes
+// a ramp that is still in progress (its end event is >= t), so a long `decay`
+// tail would snap back to full gain or jump to 0 — a click, and one browsers
+// render differently. Re-inserting a ramp of the same kind that ends at the
+// curve's value at t reproduces the same segment (linear and exponential
+// curves are both self-similar), so the tail continues unchanged up to t.
+// Returns the held value.
+function holdEnvelopeAt(node, t) {
+  const env = node.env;
+  // Prune history the audio thread has already rendered, keeping the event
+  // that anchors the segment currently playing.
+  const now = audioCtx.currentTime;
+  let drop = 0;
+  while (drop + 1 < env.length && env[drop + 1].t <= now && env[drop + 1].t <= t) drop++;
+  if (drop) env.splice(0, drop);
+
+  const v = envValueAt(env, t);
+  let i = 0;
+  while (i < env.length && env[i].t < t) i++;
+  const cut = env[i];
+  env.length = i;
+  node.envelopeGain.gain.cancelScheduledValues(t);
+  let kind = cut && i > 0 && cut.kind !== 'set' ? cut.kind : 'set';
+  if (kind === 'exp' && !(v > 0)) kind = 'set';
+  envEvent(node, kind, v, t);
+  return v;
+}
+
 // Cancel queued envelope, voice-gain and frequency events on a channel node
 // from time t onward. Touches every voice so a boundary rewind during live
 // editing doesn't leave a chord half-routed.
 function cancelChannelEventsFrom(node, t) {
-  try { node.envelopeGain.gain.cancelScheduledValues(t); } catch (e) {}
+  try { holdEnvelopeAt(node, t); } catch (e) {}
   for (const v of node.voices) {
     if (v.source && v.source.frequency) {
       try { v.source.frequency.cancelScheduledValues(t); } catch (e) {}
@@ -1641,6 +1724,15 @@ function routeVoices(node, s, t) {
   }
 }
 
+// Would this step change the pitch of a voice that the previous note/chord
+// left sounding? Newly enabled chord voices don't count — they start muted.
+function retunes(node, s) {
+  const prev = node.lastFreqs;
+  if (!prev || node.channel.waveform === 'noise') return false;
+  const freqs = s.type === 'note' ? [s.freq] : s.type === 'chord' ? s.freqs : null;
+  return !!freqs && freqs.some((f, v) => v < prev.length && prev[v] !== f);
+}
+
 // Write one pattern step's envelope (and per-voice frequency/gain for pitched
 // notes/chords) at time t.
 function scheduleStep(node, step, t, dur) {
@@ -1650,28 +1742,47 @@ function scheduleStep(node, step, t, dur) {
   // scheduled the envelope for the full hold duration. Doing nothing here
   // is what lets a held note ring through subsequent slots without retrigger.
   if (s.type === 'sustain') return;
-  const g = node.envelopeGain.gain;
-  g.cancelScheduledValues(t);
+  // Channels are monophonic, so a tail still ringing at t (decay longer than
+  // a step) would be retuned mid-sound — an audible pitch jump. Fade it to
+  // silence over ENV_RELEASE ending at t so the new pitch starts from zero,
+  // the same end-of-note fade non-decay notes already get. Same-pitch
+  // retriggers skip this and attack from the held level instead.
+  const fadeFrom = Math.max(t - ENV_RELEASE, audioCtx.currentTime);
+  if (s.type !== 'rest' && fadeFrom < t && retunes(node, s)) {
+    holdEnvelopeAt(node, fadeFrom);
+    envEvent(node, 'lin', 0, t);
+  }
+  // Freeze whatever the previous step left at t (possibly mid-decay), so
+  // every transition below ramps from the real current level, never jumps.
+  holdEnvelopeAt(node, t);
   if (s.type === 'rest') {
-    g.setValueAtTime(0, t);
+    envEvent(node, 'lin', 0, t + ENV_RELEASE);
     return;
   }
   routeVoices(node, s, t);
+  // Triggers keep voice 0's pitch and mute the chord voices.
+  if (s.type === 'note') node.lastFreqs = [s.freq];
+  else if (s.type === 'chord') node.lastFreqs = s.freqs;
+  else if (node.lastFreqs) node.lastFreqs = node.lastFreqs.slice(0, 1);
   // Velocity scales the envelope peak. Default = 1.0 (backward-compatible),
   // accent = 1.5 (compressor absorbs headroom), ghost = 0.4.
   const peak = s.vel ?? 1;
   // Held notes hold the envelope up for `hold` step durations before the
   // end-of-step fade. Bare notes use the original 1-step duration.
   const holdDur = (s.hold ?? 1) * dur;
-  g.setValueAtTime(peak, t);
+  // Short linear attack: oscillators free-run, so an instantaneous 0→peak
+  // step lands at an arbitrary waveform phase and clicks.
   if (ch.effects.decay != null) {
-    g.exponentialRampToValueAtTime(0.001, t + ch.effects.decay);
+    const decay = ch.effects.decay;
+    envEvent(node, 'lin', peak, t + Math.min(ENV_ATTACK, decay));
+    envEvent(node, 'exp', 0.001, t + decay);
   } else {
     // Hold full gain until the last 10ms of the held duration, then linear-ramp
-    // to 0 so the next non-sustain step's setValueAtTime doesn't jump from a
-    // non-zero floor.
-    g.setValueAtTime(peak, t + holdDur - 0.01);
-    g.linearRampToValueAtTime(0, t + holdDur);
+    // to 0 so the next note's attack starts from silence. BPM ≤ 999 keeps a
+    // step (≥ 30ms) longer than attack + release.
+    envEvent(node, 'lin', peak, t + ENV_ATTACK);
+    envEvent(node, 'set', peak, t + holdDur - ENV_RELEASE);
+    envEvent(node, 'lin', 0, t + holdDur);
   }
 }
 
@@ -1733,12 +1844,18 @@ class Scheduler {
   }
 
   tick() {
-    const ahead = this.ctx.currentTime + SCHEDULE_AHEAD;
+    const now = this.ctx.currentTime;
+    const ahead = now + SCHEDULE_AHEAD;
     while (this.t0 + this.step * this.dur < ahead) {
       const t = this.t0 + this.step * this.dur;
-      for (const node of this.nodes) {
-        if (t >= node.notBefore && t < node.stoppedAt) {
-          scheduleStep(node, this.step, t, this.dur);
+      // A main-thread stall longer than the lookahead leaves steps whose time
+      // has already passed. Writing them would fire every missed note at once
+      // (past-time events apply immediately), so skip them and resume on time.
+      if (t >= now) {
+        for (const node of this.nodes) {
+          if (t >= node.notBefore && t < node.stoppedAt) {
+            scheduleStep(node, this.step, t, this.dur);
+          }
         }
       }
       this.step++;
@@ -2371,10 +2488,9 @@ function addChannel(ch, registryKey, applyAt) {
 
 function removeChannel(node, applyAt) {
   node.stoppedAt = applyAt;
-  const g = node.envelopeGain.gain;
   try {
-    g.cancelScheduledValues(applyAt);
-    g.setTargetAtTime(0, applyAt, 0.005);
+    holdEnvelopeAt(node, applyAt);
+    node.envelopeGain.gain.setTargetAtTime(0, applyAt, 0.005);
   } catch (e) {}
 
   const idx = channelNodes.indexOf(node);
@@ -2428,7 +2544,7 @@ function liveUpdate(hum) {
     scheduler.rebaseForTempo(plan.tempoChange);
   }
 
-  const boundary = plan.boundary;
+  const boundary = plan.tempoChange ? nextBoundary() : plan.boundary;
 
   // 2. Remove channels no longer present (quantized to next boundary).
   for (const registryKey of plan.removals) {
@@ -2469,12 +2585,21 @@ function liveUpdate(hum) {
 // ── Play / Stop ─────────────────────────────────────────────────────
 
 playBtn.addEventListener('click', () => {
-  if (isPlaying) {
+  if (isPlaying && audioInterrupted()) {
+    // While the button reads "resume", a tap means resume, not stop.
+    tryResumeAudio();
+  } else if (isPlaying) {
     stopPlayback();
   } else {
     startPlayback();
   }
 });
+
+// resume() outside a user gesture is refused on iOS, so also retry when the
+// page comes back to the foreground and on the next touch or key press.
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tryResumeAudio(); });
+document.addEventListener('pointerdown', tryResumeAudio, true);
+document.addEventListener('keydown', tryResumeAudio, true);
 
 async function startPlayback() {
   // Re-entrancy guard: the `await` below opens a window where a second click

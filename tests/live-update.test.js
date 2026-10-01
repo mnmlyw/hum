@@ -93,7 +93,7 @@ describe('nextBoundaryAt', () => {
   });
 
   it('matches SCHEDULE_AHEAD constant used in the app', () => {
-    assert.equal(SCHEDULE_AHEAD, 0.15);
+    assert.equal(SCHEDULE_AHEAD, 0.2);
   });
 });
 
@@ -113,6 +113,22 @@ function planFrom(text, { lastKey = '', nodes = [], now = 0, t0 = 0, dur = null 
 }
 
 describe('planLiveUpdate', () => {
+  for (const [bpm, expectedBoundary] of [[60, 1.4], [240, 1.425]]) {
+    it(`uses the rebased boundary for a simultaneous tempo/channel edit at ${bpm} BPM`, () => {
+      const plan = planFrom(`bpm ${bpm}\nlead tri c4\nbass saw c2`, {
+        nodes: [{ registryKey: 'lead', waveform: 'sin' }],
+        now: 1.1,
+        t0: 1,
+        dur: 0.25,
+      });
+      assert.equal(plan.structuralChange, true);
+      assert.equal(plan.swaps.length, 1);
+      assert.equal(plan.additions.length, 1);
+      assert.ok(Math.abs(plan.boundary - expectedBoundary) < 1e-12);
+      assert.ok(plan.boundary >= 1.1 + SCHEDULE_AHEAD + 0.02);
+    });
+  }
+
   it('skips when humKey is unchanged', () => {
     const hum = parse('bpm 120\nlead sin c4');
     const key = humKey(hum);
