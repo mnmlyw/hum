@@ -265,8 +265,7 @@ html, body {
 
 /* ── Mobile / touch ─────────────────────────────────────────────────
    Activated on coarse-pointer, no-hover devices (phones + tablets).
-   Desktop browsers — including the Playwright suite's Chromium —
-   never match these queries, so existing tests stay unaffected. */
+   Desktop browsers never match these queries. */
 #mobile-toolbar { display: none; }
 
 @media (hover: none) and (pointer: coarse) {
@@ -1321,7 +1320,6 @@ const pendingSwaps = new Set();        // active waveform-swap cleanup timers, c
 let scheduler = null;
 let isPlaying = false;
 let starting = false;
-let schedulerCreations = 0;
 
 function ensureAudioCtx() {
   if (!audioCtx) {
@@ -2617,7 +2615,6 @@ async function startPlayback() {
 
     buildGraph(hum);
     scheduler = new Scheduler(audioCtx, channelNodes, 60 / hum.bpm / 2);
-    schedulerCreations++;
     scheduler.start();
     lastParseKey = humKey(hum);
     isPlaying = true;
@@ -2809,51 +2806,6 @@ document.addEventListener('keydown', (e) => {
     stopPlayback();
   }
 });
-
-// ── Test hook ───────────────────────────────────────────────────────
-//
-// `window.__hum` is a load-bearing API for the Playwright suite. Anything
-// added here is part of the test contract — adding a field commits future
-// edits to keeping it stable. Removing or renaming a field will break the
-// test suite. Group new fields by category and prefer narrow, observable
-// state over wide handles.
-//
-// Contract (when ?test=1):
-//   parse(text)               — pure parser; same as the live parser.
-//   humKey(hum)               — fingerprint for live-update dedup.
-//   planLiveUpdate(opts)      — pure diff planner; returns skip/apply plan.
-//   nextBoundaryAt(...)       — step-boundary math for structural edits.
-//   applyEdit(text)           — set editor + run onInput synchronously,
-//                               bypassing the 300ms debounce.
-//   LPF_OPEN, HPF_OPEN,       — runtime constants tests assert against.
-//   SCHEDULE_AHEAD
-//   audioCtx, analyser        — live audio graph handles for RMS sampling.
-//   scheduler                 — current Scheduler instance (or null).
-//   channelNodes              — ordered array of live channel nodes.
-//   channelNodesByName        — Map<registryKey, node>.
-//   isPlaying                 — boolean.
-//   schedulerCreations        — monotonically increasing count of
-//                               `new Scheduler` calls (re-entrancy guard).
-if (new URLSearchParams(location.search).has('test')) {
-  window.__hum = {
-    parse,
-    humKey,
-    planLiveUpdate,
-    nextBoundaryAt,
-    LPF_OPEN, HPF_OPEN, SCHEDULE_AHEAD,
-    get audioCtx() { return audioCtx; },
-    get analyser() { return analyserNode; },
-    get scheduler() { return scheduler; },
-    get channelNodes() { return channelNodes; },
-    get channelNodesByName() { return channelNodesByName; },
-    get isPlaying() { return isPlaying; },
-    get schedulerCreations() { return schedulerCreations; },
-    applyEdit(text) {
-      editor.value = text;
-      onInput();
-    }
-  };
-}
 </script>
 </body>
 </html>

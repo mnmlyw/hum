@@ -20,6 +20,6 @@ export default [
     }
   },
   {
-    ignores: ['node_modules/**', 'test-results/**', 'playwright-report/**']
+    ignores: ['node_modules/**']
   }
 ];
