@@ -20,10 +20,4 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run lint
-
-      - run: npm run check:spec
-
-      - run: npm run preset:check
-
-      - run: npm test
+      - run: npm run check

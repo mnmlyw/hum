@@ -1,25 +1,46 @@
 // Minimal lint config: catches dead code and undefined references.
-// Scoped to JS files we can lint cleanly — index.html's inline script
-// would need extra plumbing and isn't worth it for this size of project.
+// index.html's inline scripts are linted as one shared-scope program — the
+// same way the browser runs its classic <script> blocks.
 
 import globals from 'globals';
+import html from 'eslint-plugin-html';
+
+const rules = {
+  'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
+  'no-undef': 'error',
+  'no-unreachable': 'error',
+  'no-constant-condition': ['error', { checkLoops: false }]
+};
 
 export default [
   {
-    files: ['tests/**/*.js', 'tools/**/*.js'],
+    files: ['tests/**/*.js', 'tools/**/*.js', 'eslint.config.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
-      globals: { ...globals.node, ...globals.browser }
+      globals: { ...globals.node }
     },
-    rules: {
-      'no-unused-vars': ['error', { argsIgnorePattern: '^_', caughtErrors: 'none' }],
-      'no-undef': 'error',
-      'no-unreachable': 'error',
-      'no-constant-condition': ['error', { checkLoops: false }]
-    }
+    rules
   },
   {
-    ignores: ['node_modules/**']
+    files: ['**/*.html'],
+    plugins: { html },
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'script',
+      globals: { ...globals.browser }
+    },
+    rules
+  },
+  {
+    // tutorial.html inlines all of hum-core/hum-engine but only calls part of
+    // it; those blocks are already checked for dead code in index.html. Keep
+    // no-undef so the play controller can't call an engine API that's gone.
+    files: ['tutorial.html'],
+    rules: { 'no-unused-vars': 'off' }
+  },
+  {
+    // Linted through its output, tutorial.html.
+    ignores: ['node_modules/**', 'tools/tutorial.template.html']
   }
 ];

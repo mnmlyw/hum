@@ -1,24 +1,9 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { readFileSync } from 'node:fs';
+import { loadBlocks } from '../tools/hum-blocks.js';
 
-// ── Extract parser from index.html ────────────────────────────────────
-
-const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
-let src = scriptMatch[1];
-
-// Strip browser-only code so we can eval in Node
-src = src.replace(/^const timerWorkerBlob[\s\S]*?const timerWorker[^\n]*/m, '');
-src = src.replace(/class Scheduler[\s\S]*$/, '');
-
-// Expose parser and helpers via module scope
-const module = {};
-const code = src + '\nmodule.exports = { NOTE_FREQ, NOTE_NAMES, WAVEFORMS, parse, parseNum };';
-const fn = new Function('module', code);
-fn(module);
-
-const { NOTE_FREQ, NOTE_NAMES, WAVEFORMS, parse, parseNum } = module.exports;
+const { NOTE_FREQ, NOTE_NAMES, WAVEFORMS, parse, parseNum } = loadBlocks(['hum-core']);
 
 // ── Note Frequency Table ────────────────────────────────────────────
 
@@ -792,6 +777,7 @@ describe('parser: real hum files', () => {
   });
 
   it('default hum in index.html parses without errors', () => {
+    const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
     const match = html.match(/const DEFAULT_HUM = `([\s\S]*?)`;/);
     const hum = parse(match[1]);
     assert.ok(hum.channels.length > 0);
@@ -799,158 +785,9 @@ describe('parser: real hum files', () => {
   });
 });
 
-// ── Scheduler Timing ────────────────────────────────────────────────
+// ── Demos ───────────────────────────────────────────────────────────
 
-// Minimal Scheduler reimplementation for timing tests
-// Mirrors the logic in index.html without Web Audio dependencies
-class TestScheduler {
-  constructor(bpm, startTimeOffset = 0.1) {
-    this.stepDuration = 60 / bpm / 2;
-    this.currentStep = 0;
-    this.startTime = startTimeOffset;
-    this.log = []; // { step, time, channelSteps: { name: stepIdx } }
-  }
-
-  stepTime(step) {
-    return this.startTime + step * this.stepDuration;
-  }
-
-  scheduleStep(time, channels) {
-    const entry = { step: this.currentStep, time, channelSteps: {} };
-    for (const ch of channels) {
-      entry.channelSteps[ch.name] = this.currentStep % ch.pattern.length;
-    }
-    this.log.push(entry);
-  }
-
-  run(steps, channels) {
-    for (let i = 0; i < steps; i++) {
-      this.scheduleStep(this.stepTime(this.currentStep), channels);
-      this.currentStep++;
-    }
-    return this.log;
-  }
-}
-
-describe('scheduler: step timing', () => {
-  it('step times are evenly spaced', () => {
-    const sched = new TestScheduler(120);
-    const log = sched.run(100, []);
-    for (let i = 1; i < log.length; i++) {
-      const gap = log[i].time - log[i - 1].time;
-      assert.ok(Math.abs(gap - sched.stepDuration) < 1e-10,
-        `step ${i}: gap ${gap} !== ${sched.stepDuration}`);
-    }
-  });
-
-  it('step times are evenly spaced at odd bpm', () => {
-    const sched = new TestScheduler(137);
-    const log = sched.run(10000, []);
-    for (let i = 1; i < log.length; i++) {
-      const gap = log[i].time - log[i - 1].time;
-      assert.ok(Math.abs(gap - sched.stepDuration) < 1e-9,
-        `step ${i}: gap ${gap} !== ${sched.stepDuration}`);
-    }
-  });
-
-  it('base-computed times match expected values exactly', () => {
-    const bpm = 96;
-    const sched = new TestScheduler(bpm);
-    const log = sched.run(1000, []);
-    const stepDur = 60 / bpm / 2;
-    for (const entry of log) {
-      const expected = sched.startTime + entry.step * stepDur;
-      assert.equal(entry.time, expected, `step ${entry.step} time mismatch`);
-    }
-  });
-
-  it('no drift from accumulated addition', () => {
-    // Simulate the OLD buggy approach (accumulation) vs new (base-computed)
-    const bpm = 138;
-    const stepDur = 60 / bpm / 2;
-    const startTime = 0.1;
-    const steps = 100000;
-
-    // Accumulated addition: what the old code did (drifts due to FP rounding)
-    let accumulated = startTime;
-    for (let i = 1; i < steps; i++) {
-      accumulated += stepDur;
-    }
-
-    // Base-computed: what the scheduler now does (no drift by construction)
-    const baseComputed = startTime + (steps - 1) * stepDur;
-
-    // Accumulated should have drifted from the base-computed value
-    const drift = Math.abs(accumulated - baseComputed);
-    assert.ok(drift > 0, 'expected floating-point drift from accumulation');
-
-    // The scheduler uses base-computed times, which match exactly
-    const sched = new TestScheduler(bpm);
-    const log = sched.run(steps, []);
-    const lastEntry = log[log.length - 1];
-    assert.equal(lastEntry.time, sched.startTime + lastEntry.step * sched.stepDuration);
-  });
-});
-
-describe('scheduler: channel sync', () => {
-  it('all channels receive the same time per step', () => {
-    const hum = parse('bpm 120\nkick noise x . . x\nlead tri c4 e4 g4 .\nbass saw c2 . e2 .');
-    const sched = new TestScheduler(120);
-    const log = sched.run(64, hum.channels);
-    // Every step has one time — all channels are scheduled at that time
-    for (const entry of log) {
-      assert.equal(typeof entry.time, 'number');
-      // All channel step indices are computed from the same global step
-      for (const ch of hum.channels) {
-        assert.equal(entry.channelSteps[ch.name], entry.step % ch.pattern.length);
-      }
-    }
-  });
-
-  it('equal-length channels stay in sync forever', () => {
-    const hum = parse('bpm 140\na tri c4 e4 g4 . c4 e4 g4 .\nb saw c2 . e2 . g2 . c2 .');
-    assert.equal(hum.channels[0].pattern.length, hum.channels[1].pattern.length);
-    const sched = new TestScheduler(140);
-    const log = sched.run(10000, hum.channels);
-    for (const entry of log) {
-      assert.equal(entry.channelSteps['a'], entry.channelSteps['b'],
-        `step ${entry.step}: channels out of sync`);
-    }
-  });
-
-  it('channels with divisible lengths stay bar-aligned', () => {
-    // 16-step melody, 8-step drums — drums should restart every 8 steps
-    const hum = parse(
-      'lead tri c4 e4 g4 . c4 e4 g4 . c4 e4 g4 . c4 e4 g4 .\n' +
-      'kick noise x . . . x . . .'
-    );
-    assert.equal(hum.channels[0].pattern.length, 16);
-    assert.equal(hum.channels[1].pattern.length, 8);
-    const sched = new TestScheduler(120);
-    const log = sched.run(160, hum.channels);
-    for (const entry of log) {
-      // When lead is at step 0 or 8, kick should be at step 0
-      if (entry.channelSteps['lead'] === 0) {
-        assert.equal(entry.channelSteps['kick'], 0,
-          `step ${entry.step}: kick not aligned on lead bar 1`);
-      }
-      if (entry.channelSteps['lead'] === 8) {
-        assert.equal(entry.channelSteps['kick'], 0,
-          `step ${entry.step}: kick not aligned on lead bar 2`);
-      }
-    }
-  });
-
-  it('step 0 of all channels aligns at the start', () => {
-    const hum = parse('bpm 96\na tri c4 e4\nb saw c2 .\nc noise x .');
-    const sched = new TestScheduler(96);
-    const log = sched.run(1, hum.channels);
-    for (const ch of hum.channels) {
-      assert.equal(log[0].channelSteps[ch.name], 0,
-        `${ch.name} not at step 0 on first beat`);
-    }
-  });
-
+describe('demos', () => {
   it('all demo hums have matching channel lengths', () => {
     const files = ['glass.hum', 'neon-drift.hum', 'phosphene.hum', 'dust-and-iron.hum'];
     for (const file of files) {

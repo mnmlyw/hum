@@ -939,7 +939,17 @@ hat noise
   </div>
 </div>
 
-<script>
+<!--
+  Three script blocks, loaded in order and sharing one global scope:
+    hum-core    pure code — parser, live-update planner, scheduler timing,
+                syntax highlighter. No DOM, no Web Audio. Node tests and
+                tools/build-tutorial.js evaluate this block directly.
+    hum-engine  Web Audio graph + per-step envelope writes. No editor DOM;
+                tutorial.html embeds it, tests/audio.test.js renders it
+                offline.
+    (app)       editor, visualizer, live coding, play/stop, save/load.
+-->
+<script id="hum-core">
 // ── Constants & Note Table ──────────────────────────────────────────
 
 const NOTE_NAMES = ['c','c#','d','d#','e','f','f#','g','g#','a','a#','b'];
@@ -950,20 +960,6 @@ const MAX_CHANNELS = 8;
 const DEFAULT_BPM = 120;
 const SCHEDULE_AHEAD = 0.2;
 const TICK_MS = 25;
-
-// Web Worker for timer — immune to background tab throttling
-const timerWorkerBlob = new Blob([`
-let id = null;
-onmessage = function(e) {
-  if (e.data.cmd === 'start') {
-    if (id !== null) clearInterval(id);
-    id = setInterval(function() { postMessage('tick'); }, e.data.interval);
-  } else if (e.data.cmd === 'stop') {
-    if (id !== null) { clearInterval(id); id = null; }
-  }
-};
-`], { type: 'text/javascript' });
-const timerWorker = new Worker(URL.createObjectURL(timerWorkerBlob));
 
 // Generate note frequencies: A4 = 440Hz
 const NOTE_FREQ = {};
@@ -1305,94 +1301,8 @@ function parse(text) {
   return result;
 }
 
-// ── Audio Engine ────────────────────────────────────────────────────
-
 const LPF_OPEN = 20000;
 const HPF_OPEN = 0;
-
-let audioCtx = null;
-let noiseBuffer = null;
-let analyserNode = null;
-const channelNodes = [];         // ordered view (parse order); never reassigned
-const channelNodesByName = new Map(); // registry keyed by stable name#occurrence
-const pendingRemovals = new Set();    // nodes spliced out of channelNodes but not yet disconnected
-const pendingSwaps = new Set();        // active waveform-swap cleanup timers, capped via MAX_PENDING_SWAPS
-let scheduler = null;
-let isPlaying = false;
-let starting = false;
-
-function ensureAudioCtx() {
-  if (!audioCtx) {
-    audioCtx = new AudioContext();
-    const compressor = audioCtx.createDynamicsCompressor();
-    compressor.threshold.value = -12;
-    compressor.knee.value = 6;
-    compressor.ratio.value = 8;
-    compressor.attack.value = 0.003;
-    compressor.release.value = 0.1;
-    compressor.connect(audioCtx.destination);
-    audioCtx.onstatechange = onAudioStateChange;
-    analyserNode = audioCtx.createAnalyser();
-    analyserNode.fftSize = 2048;
-    analyserNode.connect(compressor);
-    const size = audioCtx.sampleRate * 2;
-    noiseBuffer = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
-    const data = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
-  }
-  if (audioCtx.state === 'suspended') audioCtx.resume();
-}
-
-// The OS can pull the context out from under us — iOS suspends or
-// 'interrupt's it on backgrounding, phone calls, Siri, or another app taking
-// the audio session. currentTime freezes while it isn't running, so the
-// scheduler just idles (no burst of catch-up notes); we only have to get the
-// context running again and show the user that playback is paused.
-function audioInterrupted() {
-  return !!audioCtx && audioCtx.state !== 'running' && audioCtx.state !== 'closed';
-}
-
-function tryResumeAudio() {
-  if (isPlaying && audioInterrupted()) audioCtx.resume().catch(() => {});
-}
-
-function onAudioStateChange() {
-  if (!isPlaying) return;
-  playBtn.textContent = audioInterrupted() ? 'resume' : 'stop';
-  tryResumeAudio();
-}
-
-function createSource(waveform) {
-  if (waveform === 'noise') {
-    const s = audioCtx.createBufferSource();
-    s.buffer = noiseBuffer;
-    s.loop = true;
-    return s;
-  }
-  const s = audioCtx.createOscillator();
-  s.type = WAVEFORM_MAP[waveform];
-  s.frequency.value = 0;
-  return s;
-}
-
-function makeGain(value) {
-  const g = audioCtx.createGain();
-  g.gain.value = value;
-  return g;
-}
-
-function makeFilter(type, freq) {
-  const f = audioCtx.createBiquadFilter();
-  f.type = type;
-  f.Q.value = 0.707;
-  f.frequency.value = freq;
-  return f;
-}
-
-// Connect a sequence of audio nodes head → tail.
-function chain(...nodes) {
-  for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1]);
-}
 
 // Greatest polyphony any chord step in the pattern requires. Drives initial
 // voice allocation; ensureVoices() grows the pool live if the pattern is
@@ -1403,74 +1313,6 @@ function chordMaxPoly(pattern) {
     if (s.type === 'chord' && s.freqs.length > max) max = s.freqs.length;
   }
   return max;
-}
-
-function createChannelNode(ch, registryKey) {
-  const source = createSource(ch.waveform);
-  const sourceGain = makeGain(1);
-  const envelopeGain = makeGain(0);
-  const filterHPF = makeFilter('highpass', ch.effects.hpf ?? HPF_OPEN);
-  const filterLPF = makeFilter('lowpass', ch.effects.lpf ?? LPF_OPEN);
-  const volumeGain = makeGain(ch.effects.vol);
-  // Per-channel analyser feeds the mini-VU strip in the footer. Tiny FFT —
-  // we only need RMS-ish loudness, not spectrum detail.
-  const meter = audioCtx.createAnalyser();
-  meter.fftSize = 256;
-  meter.smoothingTimeConstant = 0.6;
-
-  chain(source, sourceGain, envelopeGain, filterHPF, filterLPF, volumeGain, meter, analyserNode);
-  source.start();
-
-  // Voice 0 reuses source/sourceGain so the documented signal chain stays
-  // intact. Extra voices (allocated only for chord patterns) sum into
-  // envelopeGain in parallel — each chord note gets its own oscillator with
-  // its own gain that the scheduler dials between 0 and 1/√N.
-  const voices = [{ source, sourceGain }];
-  const node = {
-    source, sourceGain, envelopeGain,
-    filterLPF, filterHPF, volumeGain, meter,
-    voices,
-    env: [],           // mirror of envelopeGain's automation timeline (see envEvent)
-    lastFreqs: null,   // per-voice pitches of the last scheduled note/chord (see retunes)
-    channel: ch, registryKey,
-    notBefore: 0,      // scheduler skips steps where t < notBefore
-    stoppedAt: Infinity // scheduler skips steps where t >= stoppedAt
-  };
-  // Noise can't pitch-vary so chord steps are rejected at parse time;
-  // never grow the pool beyond voice 0 for noise channels.
-  if (ch.waveform !== 'noise') {
-    ensureVoices(node, chordMaxPoly(ch.pattern));
-  }
-  return node;
-}
-
-// Grow node.voices up to `count` voices. Lazy so pattern edits that add a
-// bigger chord don't require rebuilding the channel.
-function ensureVoices(node, count) {
-  if (node.channel.waveform === 'noise') return;
-  while (node.voices.length < count) {
-    const src = createSource(node.channel.waveform);
-    const g = makeGain(0);
-    src.connect(g);
-    g.connect(node.envelopeGain);
-    src.start();
-    node.voices.push({ source: src, sourceGain: g });
-  }
-}
-
-function disconnectNode(node) {
-  // Voice 0 = node.source/node.sourceGain; voices 1+ exist only if a chord
-  // step ever needed them. Loop over the pool so neither path is forgotten.
-  for (const v of node.voices || [{ source: node.source, sourceGain: node.sourceGain }]) {
-    try { v.source.stop(); } catch (e) {}
-    try { v.source.disconnect(); } catch (e) {}
-    try { v.sourceGain.disconnect(); } catch (e) {}
-  }
-  try { node.meter.disconnect(); } catch (e) {}
-  try { node.envelopeGain.disconnect(); } catch (e) {}
-  try { node.filterLPF.disconnect(); } catch (e) {}
-  try { node.filterHPF.disconnect(); } catch (e) {}
-  try { node.volumeGain.disconnect(); } catch (e) {}
 }
 
 // Assign stable registry keys that tolerate duplicate channel names:
@@ -1489,8 +1331,7 @@ function keysFor(channels) {
 //
 // humKey fingerprints a parsed hum so liveUpdate can skip no-op edits.
 // planLiveUpdate diffs the new hum against the current graph registry and
-// returns an action plan — no Web Audio side effects. Node tests import
-// these via the same index.html extraction pattern as the parser suite.
+// returns an action plan — no Web Audio side effects.
 
 function humKey(hum) {
   return hum.bpm + '|' + hum.channels.map(c =>
@@ -1582,60 +1423,16 @@ function planLiveUpdate({ lastKey, hum, nodes, now, t0, dur, scheduleAhead }) {
   };
 }
 
-function buildGraph(hum) {
-  teardownGraph();
-  const keys = keysFor(hum.channels);
-  for (let i = 0; i < hum.channels.length; i++) {
-    const node = createChannelNode(hum.channels[i], keys[i]);
-    channelNodes.push(node);
-    channelNodesByName.set(keys[i], node);
-  }
-}
-
-function teardownGraph() {
-  const now = audioCtx.currentTime;
-  const silenceAndDisconnect = (node) => {
-    try {
-      node.envelopeGain.gain.cancelScheduledValues(0);
-      node.envelopeGain.gain.setValueAtTime(0, now);
-    } catch (e) {}
-    disconnectNode(node);
-  };
-  for (const node of channelNodes) silenceAndDisconnect(node);
-  // Drain nodes that were removed mid-play but whose async disconnect setTimeout
-  // hasn't fired yet — otherwise their pre-scheduled envelope events keep
-  // playing through the still-connected graph until the boundary.
-  for (const node of pendingRemovals) silenceAndDisconnect(node);
-  pendingRemovals.clear();
-  // Drain any pending waveform-swap cleanups so old oscillators don't outlive
-  // the graph that hosted them.
-  for (const entry of pendingSwaps) {
-    clearTimeout(entry.timer);
-    entry.cleanup();
-  }
-  pendingSwaps.clear();
-  channelNodes.length = 0;
-  channelNodesByName.clear();
-}
-
 // ── Scheduler ───────────────────────────────────────────────────────
+//
+// Timing only. The Web Audio writes it triggers (scheduleStep, envEvent,
+// holdEnvelopeAt) live in hum-engine and reach the Scheduler through `io`.
 
 const ENV_ATTACK = 0.003;   // linear fade-in at every note onset
 const ENV_RELEASE = 0.01;   // linear fade-out at note end and on rests
 
-// Every envelopeGain write goes through envEvent so node.env mirrors the
-// AudioParam's timeline as [{ t, v, kind }] — kind is 'set' (setValueAtTime),
-// 'lin' or 'exp' (a ramp *ending* at t). The mirror lets us compute the
-// envelope's value at any time without reading the AudioParam, which only
-// reports its current value.
-function envEvent(node, kind, v, t) {
-  const g = node.envelopeGain.gain;
-  if (kind === 'lin') g.linearRampToValueAtTime(v, t);
-  else if (kind === 'exp') g.exponentialRampToValueAtTime(v, t);
-  else g.setValueAtTime(v, t);
-  node.env.push({ t, v, kind });
-}
-
+// Value of an envelope mirror (see envEvent in hum-engine) at time t,
+// following the same linear/exponential curves the AudioParam renders.
 function envValueAt(env, t) {
   let i = 0;
   while (i < env.length && env[i].t <= t) i++;
@@ -1649,79 +1446,6 @@ function envValueAt(env, t) {
   return p.v * Math.pow(q.v / p.v, frac);
 }
 
-// Portable cancelAndHoldAtTime: drop envelope events at/after t but keep the
-// curve exactly as scheduled up to t. Plain cancelScheduledValues(t) deletes
-// a ramp that is still in progress (its end event is >= t), so a long `decay`
-// tail would snap back to full gain or jump to 0 — a click, and one browsers
-// render differently. Re-inserting a ramp of the same kind that ends at the
-// curve's value at t reproduces the same segment (linear and exponential
-// curves are both self-similar), so the tail continues unchanged up to t.
-// Returns the held value.
-function holdEnvelopeAt(node, t) {
-  const env = node.env;
-  // Prune history the audio thread has already rendered, keeping the event
-  // that anchors the segment currently playing.
-  const now = audioCtx.currentTime;
-  let drop = 0;
-  while (drop + 1 < env.length && env[drop + 1].t <= now && env[drop + 1].t <= t) drop++;
-  if (drop) env.splice(0, drop);
-
-  const v = envValueAt(env, t);
-  let i = 0;
-  while (i < env.length && env[i].t < t) i++;
-  const cut = env[i];
-  env.length = i;
-  node.envelopeGain.gain.cancelScheduledValues(t);
-  let kind = cut && i > 0 && cut.kind !== 'set' ? cut.kind : 'set';
-  if (kind === 'exp' && !(v > 0)) kind = 'set';
-  envEvent(node, kind, v, t);
-  return v;
-}
-
-// Cancel queued envelope, voice-gain and frequency events on a channel node
-// from time t onward. Touches every voice so a boundary rewind during live
-// editing doesn't leave a chord half-routed.
-function cancelChannelEventsFrom(node, t) {
-  try { holdEnvelopeAt(node, t); } catch (e) {}
-  for (const v of node.voices) {
-    if (v.source && v.source.frequency) {
-      try { v.source.frequency.cancelScheduledValues(t); } catch (e) {}
-    }
-    try { v.sourceGain.gain.cancelScheduledValues(t); } catch (e) {}
-  }
-}
-
-// Route active voices for one step: set per-voice frequencies and gains so
-// that exactly N voices are at the equal-power level 1/√N and the rest are
-// muted. Returns immediately for noise (no voices to route) and for triggers
-// (reuses voice 0's current frequency, mutes any chord voices left over).
-function routeVoices(node, s, t) {
-  const ch = node.channel;
-  if (ch.waveform === 'noise') return;
-  const tc = 0.005;
-  let freqs = null;
-  if (s.type === 'note') {
-    freqs = [s.freq];
-  } else if (s.type === 'chord') {
-    ensureVoices(node, s.freqs.length);
-    freqs = s.freqs;
-  }
-  // Triggers fall through with freqs === null: just mute non-primary voices.
-  const N = freqs ? freqs.length : 1;
-  const lvl = 1 / Math.sqrt(N);
-  for (let v = 0; v < node.voices.length; v++) {
-    const voice = node.voices[v];
-    if (v < N) {
-      if (freqs && voice.source.frequency) {
-        try { voice.source.frequency.setValueAtTime(freqs[v], t); } catch (e) {}
-      }
-      try { voice.sourceGain.gain.setTargetAtTime(lvl, t, tc); } catch (e) {}
-    } else {
-      try { voice.sourceGain.gain.setTargetAtTime(0, t, tc); } catch (e) {}
-    }
-  }
-}
-
 // Would this step change the pitch of a voice that the previous note/chord
 // left sounding? Newly enabled chord voices don't count — they start muted.
 function retunes(node, s) {
@@ -1731,88 +1455,42 @@ function retunes(node, s) {
   return !!freqs && freqs.some((f, v) => v < prev.length && prev[v] !== f);
 }
 
-// Write one pattern step's envelope (and per-voice frequency/gain for pitched
-// notes/chords) at time t.
-function scheduleStep(node, step, t, dur) {
-  const ch = node.channel;
-  const s = ch.pattern[step % ch.pattern.length];
-  // Sustain steps are filler for held notes — the trigger step already
-  // scheduled the envelope for the full hold duration. Doing nothing here
-  // is what lets a held note ring through subsequent slots without retrigger.
-  if (s.type === 'sustain') return;
-  // Channels are monophonic, so a tail still ringing at t (decay longer than
-  // a step) would be retuned mid-sound — an audible pitch jump. Fade it to
-  // silence over ENV_RELEASE ending at t so the new pitch starts from zero,
-  // the same end-of-note fade non-decay notes already get. Same-pitch
-  // retriggers skip this and attack from the held level instead.
-  const fadeFrom = Math.max(t - ENV_RELEASE, audioCtx.currentTime);
-  if (s.type !== 'rest' && fadeFrom < t && retunes(node, s)) {
-    holdEnvelopeAt(node, fadeFrom);
-    envEvent(node, 'lin', 0, t);
-  }
-  // Freeze whatever the previous step left at t (possibly mid-decay), so
-  // every transition below ramps from the real current level, never jumps.
-  holdEnvelopeAt(node, t);
-  if (s.type === 'rest') {
-    envEvent(node, 'lin', 0, t + ENV_RELEASE);
-    return;
-  }
-  routeVoices(node, s, t);
-  // Triggers keep voice 0's pitch and mute the chord voices.
-  if (s.type === 'note') node.lastFreqs = [s.freq];
-  else if (s.type === 'chord') node.lastFreqs = s.freqs;
-  else if (node.lastFreqs) node.lastFreqs = node.lastFreqs.slice(0, 1);
-  // Velocity scales the envelope peak. Default = 1.0 (backward-compatible),
-  // accent = 1.5 (compressor absorbs headroom), ghost = 0.4.
-  const peak = s.vel ?? 1;
-  // Held notes hold the envelope up for `hold` step durations before the
-  // end-of-step fade. Bare notes use the original 1-step duration.
-  const holdDur = (s.hold ?? 1) * dur;
-  // Short linear attack: oscillators free-run, so an instantaneous 0→peak
-  // step lands at an arbitrary waveform phase and clicks.
-  if (ch.effects.decay != null) {
-    const decay = ch.effects.decay;
-    envEvent(node, 'lin', peak, t + Math.min(ENV_ATTACK, decay));
-    envEvent(node, 'exp', 0.001, t + decay);
-  } else {
-    // Hold full gain until the last 10ms of the held duration, then linear-ramp
-    // to 0 so the next note's attack starts from silence. BPM ≤ 999 keeps a
-    // step (≥ 30ms) longer than attack + release.
-    envEvent(node, 'lin', peak, t + ENV_ATTACK);
-    envEvent(node, 'set', peak, t + holdDur - ENV_RELEASE);
-    envEvent(node, 'lin', 0, t + holdDur);
-  }
-}
-
+// `clock` is anything with a `currentTime` in seconds — the AudioContext in
+// the app, a plain object in tests. `io` carries every side effect:
+//   timer         — Worker-like ({ postMessage, add/removeEventListener })
+//                   that emits a message every TICK_MS once started
+//   scheduleStep  — (node, step, t, dur) writes one step's audio events
+//   cancelFrom    — (node, t) drops a node's queued events from t onward
+/* exported Scheduler -- eslint-plugin-html doesn't see class use across blocks */
 class Scheduler {
-  constructor(audioCtx, nodes, stepDuration) {
-    this.ctx = audioCtx;
+  constructor(clock, nodes, stepDuration, io) {
+    this.clock = clock;
     this.nodes = nodes;       // shared reference to channelNodes; mutated in place
     this.dur = stepDuration;
+    this.io = io;
     this.step = 0;            // next step index to schedule
     this.t0 = 0;
-    this.tid = null;
   }
 
   start() {
-    this.t0 = this.ctx.currentTime;
+    this.t0 = this.clock.currentTime;
     this.step = 0;
     this._workerTick = () => this.tick();
-    timerWorker.addEventListener('message', this._workerTick);
-    timerWorker.postMessage({ cmd: 'start', interval: TICK_MS });
+    this.io.timer.addEventListener('message', this._workerTick);
+    this.io.timer.postMessage({ cmd: 'start', interval: TICK_MS });
     this.tick();
   }
 
   stop() {
-    timerWorker.postMessage({ cmd: 'stop' });
+    this.io.timer.postMessage({ cmd: 'stop' });
     if (this._workerTick) {
-      timerWorker.removeEventListener('message', this._workerTick);
+      this.io.timer.removeEventListener('message', this._workerTick);
       this._workerTick = null;
     }
   }
 
   getPhase() {
-    return (this.ctx.currentTime - this.t0) / this.dur;
+    return (this.clock.currentTime - this.t0) / this.dur;
   }
 
   getVisualStep() {
@@ -1825,24 +1503,24 @@ class Scheduler {
   rewindTo(applyAt) {
     const boundaryStep = Math.ceil((applyAt - this.t0) / this.dur - 1e-6);
     if (boundaryStep < this.step) this.step = boundaryStep;
-    for (const node of this.nodes) cancelChannelEventsFrom(node, applyAt);
+    for (const node of this.nodes) this.io.cancelFrom(node, applyAt);
   }
 
   // Preserve fractional phase across a tempo change, then rewind so future
   // events get rewritten against the new grid.
   rebaseForTempo(newDur) {
-    const now = this.ctx.currentTime;
+    const now = this.clock.currentTime;
     const phase = (now - this.t0) / this.dur;
     this.t0 = now - phase * newDur;
     this.dur = newDur;
     this.step = Math.ceil(phase - 1e-6);
     // Cancel only past the next boundary — preserve any in-flight envelope ramp.
     const cancelFrom = this.t0 + this.step * this.dur;
-    for (const node of this.nodes) cancelChannelEventsFrom(node, cancelFrom);
+    for (const node of this.nodes) this.io.cancelFrom(node, cancelFrom);
   }
 
   tick() {
-    const now = this.ctx.currentTime;
+    const now = this.clock.currentTime;
     const ahead = now + SCHEDULE_AHEAD;
     while (this.t0 + this.step * this.dur < ahead) {
       const t = this.t0 + this.step * this.dur;
@@ -1852,7 +1530,7 @@ class Scheduler {
       if (t >= now) {
         for (const node of this.nodes) {
           if (t >= node.notBefore && t < node.stoppedAt) {
-            scheduleStep(node, this.step, t, this.dur);
+            this.io.scheduleStep(node, this.step, t, this.dur);
           }
         }
       }
@@ -1860,171 +1538,6 @@ class Scheduler {
     }
   }
 }
-
-// ── Visualizer ──────────────────────────────────────────────────────
-
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const stepBar = document.getElementById('step-bar');
-const metersBar = document.getElementById('meters');
-let stepDots = [];
-let meterEls = [];
-const meterBuf = new Uint8Array(128); // matches half of fftSize=256
-let vizBuffer = null;
-let stepSpanMap = {};
-let prevPlaying = [];
-let wasPlaying = false;
-let lastBufHash = -1;
-let lastActiveDotIdx = -1;
-
-function resizeCanvas() {
-  canvas.width = canvas.clientWidth * devicePixelRatio;
-  canvas.height = canvas.clientHeight * devicePixelRatio;
-  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
-}
-
-new ResizeObserver(resizeCanvas).observe(canvas);
-resizeCanvas();
-
-function buildStepDots(count) {
-  stepBar.innerHTML = '';
-  stepDots = [];
-  for (let i = 0; i < count; i++) {
-    const dot = document.createElement('div');
-    dot.className = 'step-dot' + (i % 8 === 0 ? ' beat' : '');
-    stepBar.appendChild(dot);
-    stepDots.push(dot);
-  }
-}
-
-function syncMeters(count) {
-  while (meterEls.length < count) {
-    const m = document.createElement('div');
-    m.className = 'meter';
-    metersBar.appendChild(m);
-    meterEls.push(m);
-  }
-  while (meterEls.length > count) {
-    const m = meterEls.pop();
-    metersBar.removeChild(m);
-  }
-}
-
-buildStepDots(8);
-
-function drawViz() {
-  if (analyserNode && isPlaying) {
-    wasPlaying = true;
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-
-    const bufLen = analyserNode.frequencyBinCount;
-    if (!vizBuffer || vizBuffer.length !== bufLen) vizBuffer = new Uint8Array(bufLen);
-    analyserNode.getByteTimeDomainData(vizBuffer);
-
-    // Cheap rolling hash over a stride of the buffer. If the time-domain
-    // samples haven't changed (silent passages, sustained tones) skip the
-    // whole canvas redraw — biggest idle-CPU win during quiet patterns.
-    let hash = 0;
-    for (let i = 0; i < bufLen; i += 32) hash = (hash * 31 + vizBuffer[i]) | 0;
-    if (hash !== lastBufHash) {
-      lastBufHash = hash;
-      ctx.clearRect(0, 0, w, h);
-      ctx.beginPath();
-      const sliceWidth = w / bufLen;
-      let x = 0;
-      for (let i = 0; i < bufLen; i++) {
-        const v = vizBuffer[i] / 128.0;
-        const y = (v * h) / 2;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-        x += sliceWidth;
-      }
-      ctx.lineTo(w, h / 2);
-      ctx.strokeStyle = 'rgba(94, 241, 255, 0.35)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.lineTo(w, h);
-      ctx.lineTo(0, h);
-      ctx.closePath();
-      ctx.fillStyle = 'rgba(94, 241, 255, 0.04)';
-      ctx.fill();
-    }
-
-    // Per-channel mini-VU. RMS over the time-domain buffer of each
-    // channel's own analyser, mapped to 0–100% bar height. Clip flag
-    // turns on when any sample saturates near ±1.
-    if (channelNodes.length !== meterEls.length) syncMeters(channelNodes.length);
-    for (let i = 0; i < channelNodes.length; i++) {
-      const a = channelNodes[i].meter;
-      a.getByteTimeDomainData(meterBuf);
-      let sumSq = 0, peak = 0;
-      for (let j = 0; j < meterBuf.length; j++) {
-        const v = meterBuf[j] - 128;
-        sumSq += v * v;
-        if (v > peak) peak = v;
-        else if (-v > peak) peak = -v;
-      }
-      const rms = Math.sqrt(sumSq / meterBuf.length) / 128;
-      // log-ish scale so a quiet hum still moves the bar
-      const lvl = Math.min(1, Math.sqrt(rms * 2));
-      const el = meterEls[i];
-      el.style.setProperty('--lvl', `${(lvl * 100).toFixed(1)}%`);
-      el.classList.toggle('clip', peak > 124);
-    }
-
-    // Step dots + note playhead. Time-based; updated even when the waveform
-    // hash didn't change.
-    if (scheduler && stepDots.length > 0) {
-      const vs = scheduler.getVisualStep();
-      const activeIdx = vs % stepDots.length;
-      // Edge-trigger: only flip the two dots that actually changed instead
-      // of toggling .active on all 64 every frame.
-      if (activeIdx !== lastActiveDotIdx) {
-        if (lastActiveDotIdx >= 0 && stepDots[lastActiveDotIdx]) {
-          stepDots[lastActiveDotIdx].classList.remove('active');
-        }
-        if (stepDots[activeIdx]) stepDots[activeIdx].classList.add('active');
-        lastActiveDotIdx = activeIdx;
-      }
-      for (const el of prevPlaying) el.classList.remove('playing');
-      prevPlaying = [];
-      for (let i = 0; i < channelNodes.length; i++) {
-        const ch = channelNodes[i].channel;
-        const el = stepSpanMap[i + '-' + (vs % ch.pattern.length)];
-        if (el) { el.classList.add('playing'); prevPlaying.push(el); }
-      }
-    }
-  } else if (wasPlaying) {
-    // One-shot cleanup on the playing → not-playing edge, so we don't burn
-    // classList / canvas ops while idle.
-    const w = canvas.clientWidth;
-    const h = canvas.clientHeight;
-    ctx.clearRect(0, 0, w, h);
-    for (const dot of stepDots) dot.classList.remove('active');
-    for (const el of prevPlaying) el.classList.remove('playing');
-    for (const m of meterEls) {
-      m.style.setProperty('--lvl', '0%');
-      m.classList.remove('clip');
-    }
-    prevPlaying = [];
-    lastActiveDotIdx = -1;
-    lastBufHash = -1;
-    wasPlaying = false;
-  }
-
-  requestAnimationFrame(drawViz);
-}
-
-drawViz();
-
-// ── Editor & Live Evaluation ────────────────────────────────────────
-
-const editor = document.getElementById('editor');
-const highlight = document.getElementById('highlight');
-const playBtn = document.getElementById('play-btn');
-const channelInfo = document.getElementById('channel-info');
-let debounceTimer = null;
 
 // ── Syntax Highlighter ──────────────────────────────────────────────
 
@@ -2036,13 +1549,6 @@ function esc(s) {
 
 function span(cls, text) {
   return `<span class="${cls}">${esc(text)}</span>`;
-}
-
-function ptSpan(cls, text, ch, s) {
-  if (ch !== null && s !== null) {
-    return `<span class="pt ${cls}" data-ch="${ch}" data-s="${s}">${esc(text)}</span>`;
-  }
-  return span(cls, text);
 }
 
 function highlightTokens(code, comment, chIdx, stepCounter) {
@@ -2248,6 +1754,8 @@ function highlightLine(line, prevIsChannel, chIdx, stepCounter) {
     const remainder = code.trimStart().slice(restStart);
     if (remainder.trim()) {
       out += highlightTokens(remainder, '', chIdx, stepCounter);
+    } else {
+      out += esc(remainder); // keep spacing before a trailing comment aligned
     }
 
     return out + (comment ? span('cm', comment) : '');
@@ -2275,10 +1783,10 @@ function highlightLine(line, prevIsChannel, chIdx, stepCounter) {
   return esc(code) + (comment ? span('cm', comment) : '');
 }
 
-let lastHighlightHtml = null;
-
-function updateHighlight() {
-  const text = editor.value;
+// Highlight a whole document. Pattern tokens of every parsed channel are
+// wrapped as .pt spans (data-ch / data-s / data-h) for the playhead; see
+// stepSpanMapFor.
+function highlightHum(text) {
   const lines = text.split('\n');
 
   // A header-shaped line (name + valid waveform) doesn't always survive
@@ -2320,23 +1828,569 @@ function updateHighlight() {
     }
     out.push(highlightLine(line, prevIsChannel, chIdx, stepCounter));
   }
-  const newHtml = out.join('\n') + '\n';
+  return out.join('\n');
+}
+
+// Map "chIdx-step" → the .pt element under `root` that renders that step.
+// Held notes: every slot the hold consumes points back to the same span so
+// the playhead's .playing class stays lit while sustaining.
+function stepSpanMapFor(root) {
+  const map = {};
+  for (const el of root.querySelectorAll('.pt')) {
+    const start = parseInt(el.dataset.s, 10);
+    const hold = parseInt(el.dataset.h || '1', 10);
+    for (let k = 0; k < hold; k++) map[el.dataset.ch + '-' + (start + k)] = el;
+  }
+  return map;
+}
+
+</script>
+<script id="hum-engine">
+// ── Audio Engine ────────────────────────────────────────────────────
+
+let audioCtx = null;
+let noiseBuffer = null;
+let analyserNode = null;
+const channelNodes = [];         // ordered view (parse order); never reassigned
+const channelNodesByName = new Map(); // registry keyed by stable name#occurrence
+const pendingRemovals = new Set();    // nodes spliced out of channelNodes but not yet disconnected
+const pendingSwaps = new Set();        // active waveform-swap cleanup timers, capped via MAX_PENDING_SWAPS
+
+// Master bus and shared noise buffer on a fresh context. Separate from
+// ensureAudioCtx so tests can render through an OfflineAudioContext.
+function initAudio(ctx) {
+  audioCtx = ctx;
+  const compressor = audioCtx.createDynamicsCompressor();
+  compressor.threshold.value = -12;
+  compressor.knee.value = 6;
+  compressor.ratio.value = 8;
+  compressor.attack.value = 0.003;
+  compressor.release.value = 0.1;
+  compressor.connect(audioCtx.destination);
+  analyserNode = audioCtx.createAnalyser();
+  analyserNode.fftSize = 2048;
+  analyserNode.connect(compressor);
+  const size = audioCtx.sampleRate * 2;
+  noiseBuffer = audioCtx.createBuffer(1, size, audioCtx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < size; i++) data[i] = Math.random() * 2 - 1;
+}
+
+function ensureAudioCtx() {
+  if (!audioCtx) initAudio(new AudioContext());
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+// The OS can pull the context out from under us — iOS suspends or
+// 'interrupt's it on backgrounding, phone calls, Siri, or another app taking
+// the audio session. currentTime freezes while it isn't running, so the
+// scheduler just idles (no burst of catch-up notes); we only have to get the
+// context running again and show the user that playback is paused.
+function audioInterrupted() {
+  return !!audioCtx && audioCtx.state !== 'running' && audioCtx.state !== 'closed';
+}
+
+function createSource(waveform) {
+  if (waveform === 'noise') {
+    const s = audioCtx.createBufferSource();
+    s.buffer = noiseBuffer;
+    s.loop = true;
+    return s;
+  }
+  const s = audioCtx.createOscillator();
+  s.type = WAVEFORM_MAP[waveform];
+  s.frequency.value = 0;
+  return s;
+}
+
+function makeGain(value) {
+  const g = audioCtx.createGain();
+  g.gain.value = value;
+  return g;
+}
+
+function makeFilter(type, freq) {
+  const f = audioCtx.createBiquadFilter();
+  f.type = type;
+  f.Q.value = 0.707;
+  f.frequency.value = freq;
+  return f;
+}
+
+// Connect a sequence of audio nodes head → tail.
+function chain(...nodes) {
+  for (let i = 0; i < nodes.length - 1; i++) nodes[i].connect(nodes[i + 1]);
+}
+
+
+function createChannelNode(ch, registryKey) {
+  const source = createSource(ch.waveform);
+  const sourceGain = makeGain(1);
+  const envelopeGain = makeGain(0);
+  const filterHPF = makeFilter('highpass', ch.effects.hpf ?? HPF_OPEN);
+  const filterLPF = makeFilter('lowpass', ch.effects.lpf ?? LPF_OPEN);
+  const volumeGain = makeGain(ch.effects.vol);
+  // Per-channel analyser feeds the mini-VU strip in the footer. Tiny FFT —
+  // we only need RMS-ish loudness, not spectrum detail.
+  const meter = audioCtx.createAnalyser();
+  meter.fftSize = 256;
+  meter.smoothingTimeConstant = 0.6;
+
+  chain(source, sourceGain, envelopeGain, filterHPF, filterLPF, volumeGain, meter, analyserNode);
+  source.start();
+
+  // Voice 0 reuses source/sourceGain so the documented signal chain stays
+  // intact. Extra voices (allocated only for chord patterns) sum into
+  // envelopeGain in parallel — each chord note gets its own oscillator with
+  // its own gain that the scheduler dials between 0 and 1/√N.
+  const voices = [{ source, sourceGain }];
+  const node = {
+    source, sourceGain, envelopeGain,
+    filterLPF, filterHPF, volumeGain, meter,
+    voices,
+    env: [],           // mirror of envelopeGain's automation timeline (see envEvent)
+    lastFreqs: null,   // per-voice pitches of the last scheduled note/chord (see retunes)
+    channel: ch, registryKey,
+    notBefore: 0,      // scheduler skips steps where t < notBefore
+    stoppedAt: Infinity // scheduler skips steps where t >= stoppedAt
+  };
+  // Noise can't pitch-vary so chord steps are rejected at parse time;
+  // never grow the pool beyond voice 0 for noise channels.
+  if (ch.waveform !== 'noise') {
+    ensureVoices(node, chordMaxPoly(ch.pattern));
+  }
+  return node;
+}
+
+// Grow node.voices up to `count` voices. Lazy so pattern edits that add a
+// bigger chord don't require rebuilding the channel.
+function ensureVoices(node, count) {
+  if (node.channel.waveform === 'noise') return;
+  while (node.voices.length < count) {
+    const src = createSource(node.channel.waveform);
+    const g = makeGain(0);
+    src.connect(g);
+    g.connect(node.envelopeGain);
+    src.start();
+    node.voices.push({ source: src, sourceGain: g });
+  }
+}
+
+function disconnectNode(node) {
+  // Voice 0 = node.source/node.sourceGain; voices 1+ exist only if a chord
+  // step ever needed them. Loop over the pool so neither path is forgotten.
+  for (const v of node.voices || [{ source: node.source, sourceGain: node.sourceGain }]) {
+    try { v.source.stop(); } catch (e) {}
+    try { v.source.disconnect(); } catch (e) {}
+    try { v.sourceGain.disconnect(); } catch (e) {}
+  }
+  try { node.meter.disconnect(); } catch (e) {}
+  try { node.envelopeGain.disconnect(); } catch (e) {}
+  try { node.filterLPF.disconnect(); } catch (e) {}
+  try { node.filterHPF.disconnect(); } catch (e) {}
+  try { node.volumeGain.disconnect(); } catch (e) {}
+}
+
+function buildGraph(hum) {
+  teardownGraph();
+  const keys = keysFor(hum.channels);
+  for (let i = 0; i < hum.channels.length; i++) {
+    const node = createChannelNode(hum.channels[i], keys[i]);
+    channelNodes.push(node);
+    channelNodesByName.set(keys[i], node);
+  }
+}
+
+function teardownGraph() {
+  const now = audioCtx.currentTime;
+  const silenceAndDisconnect = (node) => {
+    try {
+      node.envelopeGain.gain.cancelScheduledValues(0);
+      node.envelopeGain.gain.setValueAtTime(0, now);
+    } catch (e) {}
+    disconnectNode(node);
+  };
+  for (const node of channelNodes) silenceAndDisconnect(node);
+  // Drain nodes that were removed mid-play but whose async disconnect setTimeout
+  // hasn't fired yet — otherwise their pre-scheduled envelope events keep
+  // playing through the still-connected graph until the boundary.
+  for (const node of pendingRemovals) silenceAndDisconnect(node);
+  pendingRemovals.clear();
+  // Drain any pending waveform-swap cleanups so old oscillators don't outlive
+  // the graph that hosted them.
+  for (const entry of pendingSwaps) {
+    clearTimeout(entry.timer);
+    entry.cleanup();
+  }
+  pendingSwaps.clear();
+  channelNodes.length = 0;
+  channelNodesByName.clear();
+}
+
+
+// Every envelopeGain write goes through envEvent so node.env mirrors the
+// AudioParam's timeline as [{ t, v, kind }] — kind is 'set' (setValueAtTime),
+// 'lin' or 'exp' (a ramp *ending* at t). The mirror lets us compute the
+// envelope's value at any time without reading the AudioParam, which only
+// reports its current value.
+function envEvent(node, kind, v, t) {
+  const g = node.envelopeGain.gain;
+  if (kind === 'lin') g.linearRampToValueAtTime(v, t);
+  else if (kind === 'exp') g.exponentialRampToValueAtTime(v, t);
+  else g.setValueAtTime(v, t);
+  node.env.push({ t, v, kind });
+}
+
+// Portable cancelAndHoldAtTime: drop envelope events at/after t but keep the
+// curve exactly as scheduled up to t. Plain cancelScheduledValues(t) deletes
+// a ramp that is still in progress (its end event is >= t), so a long `decay`
+// tail would snap back to full gain or jump to 0 — a click, and one browsers
+// render differently. Re-inserting a ramp of the same kind that ends at the
+// curve's value at t reproduces the same segment (linear and exponential
+// curves are both self-similar), so the tail continues unchanged up to t.
+// Returns the held value.
+function holdEnvelopeAt(node, t) {
+  const env = node.env;
+  // Prune history the audio thread has already rendered, keeping the event
+  // that anchors the segment currently playing.
+  const now = audioCtx.currentTime;
+  let drop = 0;
+  while (drop + 1 < env.length && env[drop + 1].t <= now && env[drop + 1].t <= t) drop++;
+  if (drop) env.splice(0, drop);
+
+  const v = envValueAt(env, t);
+  let i = 0;
+  while (i < env.length && env[i].t < t) i++;
+  const cut = env[i];
+  env.length = i;
+  node.envelopeGain.gain.cancelScheduledValues(t);
+  let kind = cut && i > 0 && cut.kind !== 'set' ? cut.kind : 'set';
+  if (kind === 'exp' && !(v > 0)) kind = 'set';
+  envEvent(node, kind, v, t);
+  return v;
+}
+
+// Cancel queued envelope, voice-gain and frequency events on a channel node
+// from time t onward. Touches every voice so a boundary rewind during live
+// editing doesn't leave a chord half-routed.
+function cancelChannelEventsFrom(node, t) {
+  try { holdEnvelopeAt(node, t); } catch (e) {}
+  for (const v of node.voices) {
+    if (v.source && v.source.frequency) {
+      try { v.source.frequency.cancelScheduledValues(t); } catch (e) {}
+    }
+    try { v.sourceGain.gain.cancelScheduledValues(t); } catch (e) {}
+  }
+}
+
+// Route active voices for one step: set per-voice frequencies and gains so
+// that exactly N voices are at the equal-power level 1/√N and the rest are
+// muted. Returns immediately for noise (no voices to route) and for triggers
+// (reuses voice 0's current frequency, mutes any chord voices left over).
+function routeVoices(node, s, t) {
+  const ch = node.channel;
+  if (ch.waveform === 'noise') return;
+  const tc = 0.005;
+  let freqs = null;
+  if (s.type === 'note') {
+    freqs = [s.freq];
+  } else if (s.type === 'chord') {
+    ensureVoices(node, s.freqs.length);
+    freqs = s.freqs;
+  }
+  // Triggers fall through with freqs === null: just mute non-primary voices.
+  const N = freqs ? freqs.length : 1;
+  const lvl = 1 / Math.sqrt(N);
+  for (let v = 0; v < node.voices.length; v++) {
+    const voice = node.voices[v];
+    if (v < N) {
+      if (freqs && voice.source.frequency) {
+        try { voice.source.frequency.setValueAtTime(freqs[v], t); } catch (e) {}
+      }
+      try { voice.sourceGain.gain.setTargetAtTime(lvl, t, tc); } catch (e) {}
+    } else {
+      try { voice.sourceGain.gain.setTargetAtTime(0, t, tc); } catch (e) {}
+    }
+  }
+}
+
+// Write one pattern step's envelope (and per-voice frequency/gain for pitched
+// notes/chords) at time t.
+function scheduleStep(node, step, t, dur) {
+  const ch = node.channel;
+  const s = ch.pattern[step % ch.pattern.length];
+  // Sustain steps are filler for held notes — the trigger step already
+  // scheduled the envelope for the full hold duration. Doing nothing here
+  // is what lets a held note ring through subsequent slots without retrigger.
+  if (s.type === 'sustain') return;
+  // Channels are monophonic, so a tail still ringing at t (decay longer than
+  // a step) would be retuned mid-sound — an audible pitch jump. Fade it to
+  // silence over ENV_RELEASE ending at t so the new pitch starts from zero,
+  // the same end-of-note fade non-decay notes already get. Same-pitch
+  // retriggers skip this and attack from the held level instead.
+  const fadeFrom = Math.max(t - ENV_RELEASE, audioCtx.currentTime);
+  if (s.type !== 'rest' && fadeFrom < t && retunes(node, s)) {
+    holdEnvelopeAt(node, fadeFrom);
+    envEvent(node, 'lin', 0, t);
+  }
+  // Freeze whatever the previous step left at t (possibly mid-decay), so
+  // every transition below ramps from the real current level, never jumps.
+  holdEnvelopeAt(node, t);
+  if (s.type === 'rest') {
+    envEvent(node, 'lin', 0, t + ENV_RELEASE);
+    return;
+  }
+  routeVoices(node, s, t);
+  // Triggers keep voice 0's pitch and mute the chord voices.
+  if (s.type === 'note') node.lastFreqs = [s.freq];
+  else if (s.type === 'chord') node.lastFreqs = s.freqs;
+  else if (node.lastFreqs) node.lastFreqs = node.lastFreqs.slice(0, 1);
+  // Velocity scales the envelope peak. Default = 1.0 (backward-compatible),
+  // accent = 1.5 (compressor absorbs headroom), ghost = 0.4.
+  const peak = s.vel ?? 1;
+  // Held notes hold the envelope up for `hold` step durations before the
+  // end-of-step fade. Bare notes use the original 1-step duration.
+  const holdDur = (s.hold ?? 1) * dur;
+  // Short linear attack: oscillators free-run, so an instantaneous 0→peak
+  // step lands at an arbitrary waveform phase and clicks.
+  if (ch.effects.decay != null) {
+    const decay = ch.effects.decay;
+    envEvent(node, 'lin', peak, t + Math.min(ENV_ATTACK, decay));
+    envEvent(node, 'exp', 0.001, t + decay);
+  } else {
+    // Hold full gain until the last 10ms of the held duration, then linear-ramp
+    // to 0 so the next note's attack starts from silence. BPM ≤ 999 keeps a
+    // step (≥ 30ms) longer than attack + release.
+    envEvent(node, 'lin', peak, t + ENV_ATTACK);
+    envEvent(node, 'set', peak, t + holdDur - ENV_RELEASE);
+    envEvent(node, 'lin', 0, t + holdDur);
+  }
+}
+
+// ── Scheduler wiring ────────────────────────────────────────────────
+
+// Web Worker for timer — immune to background tab throttling. Created on
+// first play so evaluating this block has no side effects.
+const TIMER_WORKER_SRC = `
+let id = null;
+onmessage = function(e) {
+  if (e.data.cmd === 'start') {
+    if (id !== null) clearInterval(id);
+    id = setInterval(function() { postMessage('tick'); }, e.data.interval);
+  } else if (e.data.cmd === 'stop') {
+    if (id !== null) { clearInterval(id); id = null; }
+  }
+};
+`;
+let timerWorker = null;
+
+// A Scheduler driving channelNodes on audioCtx.
+function createScheduler(stepDuration) {
+  if (!timerWorker) {
+    const blob = new Blob([TIMER_WORKER_SRC], { type: 'text/javascript' });
+    timerWorker = new Worker(URL.createObjectURL(blob));
+  }
+  return new Scheduler(audioCtx, channelNodes, stepDuration, {
+    timer: timerWorker,
+    scheduleStep,
+    cancelFrom: cancelChannelEventsFrom,
+  });
+}
+
+</script>
+<script>
+// ── Playback state ──────────────────────────────────────────────────
+
+let scheduler = null;
+let isPlaying = false;
+let starting = false;
+
+function tryResumeAudio() {
+  if (isPlaying && audioInterrupted()) audioCtx.resume().catch(() => {});
+}
+
+function onAudioStateChange() {
+  if (!isPlaying) return;
+  playBtn.textContent = audioInterrupted() ? 'resume' : 'stop';
+  tryResumeAudio();
+}
+
+// ── Visualizer ──────────────────────────────────────────────────────
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const stepBar = document.getElementById('step-bar');
+const metersBar = document.getElementById('meters');
+let stepDots = [];
+let meterEls = [];
+const meterBuf = new Uint8Array(128); // matches half of fftSize=256
+let vizBuffer = null;
+let stepSpanMap = {};
+let prevPlaying = [];
+let wasPlaying = false;
+let lastBufHash = -1;
+let lastActiveDotIdx = -1;
+
+function resizeCanvas() {
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+
+new ResizeObserver(resizeCanvas).observe(canvas);
+resizeCanvas();
+
+function buildStepDots(count) {
+  stepBar.innerHTML = '';
+  stepDots = [];
+  for (let i = 0; i < count; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'step-dot' + (i % 8 === 0 ? ' beat' : '');
+    stepBar.appendChild(dot);
+    stepDots.push(dot);
+  }
+}
+
+function syncMeters(count) {
+  while (meterEls.length < count) {
+    const m = document.createElement('div');
+    m.className = 'meter';
+    metersBar.appendChild(m);
+    meterEls.push(m);
+  }
+  while (meterEls.length > count) {
+    const m = meterEls.pop();
+    metersBar.removeChild(m);
+  }
+}
+
+buildStepDots(8);
+
+function drawViz() {
+  if (analyserNode && isPlaying) {
+    wasPlaying = true;
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+
+    const bufLen = analyserNode.frequencyBinCount;
+    if (!vizBuffer || vizBuffer.length !== bufLen) vizBuffer = new Uint8Array(bufLen);
+    analyserNode.getByteTimeDomainData(vizBuffer);
+
+    // Cheap rolling hash over a stride of the buffer. If the time-domain
+    // samples haven't changed (silent passages, sustained tones) skip the
+    // whole canvas redraw — biggest idle-CPU win during quiet patterns.
+    let hash = 0;
+    for (let i = 0; i < bufLen; i += 32) hash = (hash * 31 + vizBuffer[i]) | 0;
+    if (hash !== lastBufHash) {
+      lastBufHash = hash;
+      ctx.clearRect(0, 0, w, h);
+      ctx.beginPath();
+      const sliceWidth = w / bufLen;
+      let x = 0;
+      for (let i = 0; i < bufLen; i++) {
+        const v = vizBuffer[i] / 128.0;
+        const y = (v * h) / 2;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        x += sliceWidth;
+      }
+      ctx.lineTo(w, h / 2);
+      ctx.strokeStyle = 'rgba(94, 241, 255, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(94, 241, 255, 0.04)';
+      ctx.fill();
+    }
+
+    // Per-channel mini-VU. RMS over the time-domain buffer of each
+    // channel's own analyser, mapped to 0–100% bar height. Clip flag
+    // turns on when any sample saturates near ±1.
+    if (channelNodes.length !== meterEls.length) syncMeters(channelNodes.length);
+    for (let i = 0; i < channelNodes.length; i++) {
+      const a = channelNodes[i].meter;
+      a.getByteTimeDomainData(meterBuf);
+      let sumSq = 0, peak = 0;
+      for (let j = 0; j < meterBuf.length; j++) {
+        const v = meterBuf[j] - 128;
+        sumSq += v * v;
+        if (v > peak) peak = v;
+        else if (-v > peak) peak = -v;
+      }
+      const rms = Math.sqrt(sumSq / meterBuf.length) / 128;
+      // log-ish scale so a quiet hum still moves the bar
+      const lvl = Math.min(1, Math.sqrt(rms * 2));
+      const el = meterEls[i];
+      el.style.setProperty('--lvl', `${(lvl * 100).toFixed(1)}%`);
+      el.classList.toggle('clip', peak > 124);
+    }
+
+    // Step dots + note playhead. Time-based; updated even when the waveform
+    // hash didn't change.
+    if (scheduler && stepDots.length > 0) {
+      const vs = scheduler.getVisualStep();
+      const activeIdx = vs % stepDots.length;
+      // Edge-trigger: only flip the two dots that actually changed instead
+      // of toggling .active on all 64 every frame.
+      if (activeIdx !== lastActiveDotIdx) {
+        if (lastActiveDotIdx >= 0 && stepDots[lastActiveDotIdx]) {
+          stepDots[lastActiveDotIdx].classList.remove('active');
+        }
+        if (stepDots[activeIdx]) stepDots[activeIdx].classList.add('active');
+        lastActiveDotIdx = activeIdx;
+      }
+      for (const el of prevPlaying) el.classList.remove('playing');
+      prevPlaying = [];
+      for (let i = 0; i < channelNodes.length; i++) {
+        const ch = channelNodes[i].channel;
+        const el = stepSpanMap[i + '-' + (vs % ch.pattern.length)];
+        if (el) { el.classList.add('playing'); prevPlaying.push(el); }
+      }
+    }
+  } else if (wasPlaying) {
+    // One-shot cleanup on the playing → not-playing edge, so we don't burn
+    // classList / canvas ops while idle.
+    const w = canvas.clientWidth;
+    const h = canvas.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+    for (const dot of stepDots) dot.classList.remove('active');
+    for (const el of prevPlaying) el.classList.remove('playing');
+    for (const m of meterEls) {
+      m.style.setProperty('--lvl', '0%');
+      m.classList.remove('clip');
+    }
+    prevPlaying = [];
+    lastActiveDotIdx = -1;
+    lastBufHash = -1;
+    wasPlaying = false;
+  }
+
+  requestAnimationFrame(drawViz);
+}
+
+drawViz();
+
+// ── Editor & Live Evaluation ────────────────────────────────────────
+
+const editor = document.getElementById('editor');
+const highlight = document.getElementById('highlight');
+const playBtn = document.getElementById('play-btn');
+const channelInfo = document.getElementById('channel-info');
+let debounceTimer = null;
+
+let lastHighlightHtml = null;
+
+function updateHighlight() {
+  const newHtml = highlightHum(editor.value) + '\n';
   // Memoize the rendered output. When typing produces no visible token change
   // (whitespace-only edits, undo/redo back to a known state), we can skip the
   // innerHTML rewrite and the playhead-map rebuild entirely.
   if (newHtml === lastHighlightHtml) return;
   lastHighlightHtml = newHtml;
   highlight.innerHTML = newHtml;
-  stepSpanMap = {};
-  for (const el of highlight.querySelectorAll('.pt')) {
-    const start = parseInt(el.dataset.s, 10);
-    const hold = parseInt(el.dataset.h || '1', 10);
-    // Held notes: every slot the hold consumes points back to the same
-    // DOM span so the playhead .playing class stays lit while sustaining.
-    for (let k = 0; k < hold; k++) {
-      stepSpanMap[el.dataset.ch + '-' + (start + k)] = el;
-    }
-  }
+  stepSpanMap = stepSpanMapFor(highlight);
 }
 
 // Sync scroll
@@ -2607,6 +2661,7 @@ async function startPlayback() {
   starting = true;
   try {
     ensureAudioCtx();
+    audioCtx.onstatechange = onAudioStateChange;
     await audioCtx.resume();
     const text = editor.value;
     const hum = parse(text);
@@ -2614,7 +2669,7 @@ async function startPlayback() {
     if (hum.channels.length === 0) return;
 
     buildGraph(hum);
-    scheduler = new Scheduler(audioCtx, channelNodes, 60 / hum.bpm / 2);
+    scheduler = createScheduler(60 / hum.bpm / 2);
     scheduler.start();
     lastParseKey = humKey(hum);
     isPlaying = true;
@@ -2806,6 +2861,7 @@ document.addEventListener('keydown', (e) => {
     stopPlayback();
   }
 });
+
 </script>
 </body>
 </html>

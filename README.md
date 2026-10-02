@@ -23,21 +23,23 @@ Open `index.html` in any modern browser, or visit
 
 [TUTORIAL.md](TUTORIAL.md) walks through every feature in 5 minutes —
 one note → melody → drums → polyrhythm. Prefer a browser? open
-[tutorial.html](tutorial.html) — same content, same cyberdream theme as
-the app, with the code examples run through hum's own syntax highlighter.
+[tutorial.html](tutorial.html) — the same content, generated from the
+markdown, with every example playable on hum's own engine.
 [SPEC.md](SPEC.md) is the full reference if you'd rather read the grammar.
 
 ## Repo layout
 
 ```
 index.html                  the app — DSL parser, audio engine, scheduler, editor, all of it
-tutorial.html               styled, browsable version of TUTORIAL.md (hand-written, not a build step)
+tutorial.html               generated from TUTORIAL.md; playable examples (don't edit by hand)
 SPEC.md                     the language and runtime contract (this is the source of truth)
 demos/                      shipped .hum files; load via the load button or drag-drop
-tests/parser.test.js        Node test suite (parser + scheduler math, ~90 ms)
-tests/live-update.test.js   Node tests for humKey + planLiveUpdate (~20 ms)
+tests/                      Node tests: parser, live-update planner, scheduler,
+                            highlighter, offline audio render
+tools/hum-blocks.js         loads index.html's hum-core / hum-engine scripts into Node
 tools/check-spec.js         asserts SPEC.md claims still match index.html
-tools/embed-presets.js      inlines demos/*.hum into index.html (`--check` verifies)
+tools/embed-presets.js      inlines demos/*.hum into index.html
+tools/build-tutorial.js     builds tutorial.html (template: tools/tutorial.template.html)
 .github/workflows/          GitHub Actions CI
 ```
 
@@ -46,13 +48,14 @@ tools/embed-presets.js      inlines demos/*.hum into index.html (`--check` verif
 ```sh
 npm install        # one-time
 npm test           # Node tests, sub-second feedback
-npm run test:all   # lint + spec + preset check + tests; what CI runs
-npm run lint       # eslint
-npm run check:spec # verify SPEC.md ↔ index.html
-npm run preset:embed # re-embed demos/*.hum after editing a demo
+npm run check      # lint + sync check + spec check + tests; what CI and pre-commit run
+npm run sync       # after editing a demo, TUTORIAL.md, or index.html's core/engine
 ```
 
-A pre-commit hook runs the same chain as `npm run test:all` before each commit.
+`index.html` keeps its code in three `<script>` blocks: `hum-core` (pure
+parser, scheduler timing, highlighter), `hum-engine` (Web Audio) and the
+app. Tests and `tutorial.html` reuse the first two, so there's one copy
+of every line of logic.
 
 ## Why one file
 

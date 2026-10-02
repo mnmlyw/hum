@@ -4,9 +4,8 @@
 // lets it work over `file://` where fetch from the local filesystem
 // is blocked by the browser.
 //
-// Run after editing any demo:   npm run preset:embed
-// Or in --check mode (used in CI / pre-commit) to verify without writing:
-//                                 npm run preset:embed -- --check
+// Run after editing any demo:   npm run sync
+// --check (CI / pre-commit) verifies without writing.
 
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 
@@ -40,7 +39,7 @@ const replaced = `${before}\n${blocks}\n${after}`;
 const checkOnly = process.argv.includes('--check');
 if (checkOnly) {
   if (replaced !== html) {
-    console.error('index.html preset section is stale — run `npm run preset:embed`');
+    console.error('index.html preset section is stale — run `npm run sync`');
     process.exit(1);
   }
   console.log(`presets: ${demos.length} blocks in sync`);

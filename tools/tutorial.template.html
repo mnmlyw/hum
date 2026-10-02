@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+{{generated}}
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hum — tutorial</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #16181a;
+  --bg2: #1c1f22;
+  --line: #24272b;
+  --fg: #ffffff;
+  --fg2: #7b8496;
+  --error: #ff6e5e;
+  --blue: #5ea1ff;
+  --green: #5eff6c;
+  --cyan: #5ef1ff;
+  --magenta: #ff5ef1;
+  --pink: #ff5ea0;
+  --orange: #ffbd5e;
+  --purple: #bd5eff;
+  --font: 'SF Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font);
+}
+
+body {
+  padding: 56px 24px 96px;
+}
+
+main {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+a { color: var(--cyan); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.92em;
+  color: var(--orange);
+}
+
+strong { color: var(--fg); font-weight: 600; }
+
+/* ── Header ──────────────────────────────────────────────────────── */
+
+header {
+  margin-bottom: 40px;
+}
+
+header .title {
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--cyan);
+  letter-spacing: -0.5px;
+}
+
+header .title small {
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--fg2);
+  margin-left: 12px;
+}
+
+header .tagline {
+  color: var(--fg2);
+  font-size: 15px;
+  margin-top: 10px;
+  line-height: 1.6;
+}
+
+header .hint {
+  color: var(--fg2);
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+header .hint .dot {
+  color: var(--cyan);
+}
+
+header nav {
+  margin-top: 20px;
+  display: flex;
+  gap: 18px;
+  font-size: 13px;
+}
+
+/* ── Table of contents ──────────────────────────────────────────── */
+
+#toc {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px 22px;
+  margin-bottom: 48px;
+}
+
+#toc .toc-title {
+  color: var(--fg2);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+
+#toc ol {
+  list-style: none;
+  columns: 2;
+  column-gap: 24px;
+  font-size: 14px;
+}
+
+#toc li { margin-bottom: 6px; break-inside: avoid; }
+#toc a { color: var(--fg2); }
+#toc a:hover { color: var(--cyan); text-decoration: none; }
+
+/* ── Sections ────────────────────────────────────────────────────── */
+
+section {
+  margin-bottom: 44px;
+  scroll-margin-top: 24px;
+}
+
+section h2 {
+  font-size: 19px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+section h2 .num {
+  color: var(--magenta);
+  font-size: 15px;
+  min-width: 22px;
+}
+
+section p, section li {
+  color: var(--fg2);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+section p { margin-bottom: 10px; }
+
+section p:last-child, section ul:last-child { margin-bottom: 0; }
+
+section ul {
+  list-style: none;
+  margin: 10px 0;
+}
+
+section li {
+  padding-left: 18px;
+  position: relative;
+  margin-bottom: 6px;
+}
+
+section li::before {
+  content: '—';
+  position: absolute;
+  left: 0;
+  color: var(--purple);
+  opacity: 0.6;
+}
+
+/* ── Code blocks ─────────────────────────────────────────────────── */
+
+.code-wrap {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.code-toolbar .status {
+  font-size: 11px;
+  color: var(--fg2);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.code-toolbar .status.show { opacity: 1; }
+
+.play-btn {
+  background: none;
+  border: none;
+  color: var(--fg2);
+  font-family: var(--font);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  padding: 3px 10px;
+  border-radius: 4px;
+}
+
+.play-btn:hover { color: var(--fg); background: rgba(255, 255, 255, 0.06); }
+.play-btn.playing { color: var(--cyan); }
+
+pre.code {
+  padding: 16px 20px;
+  overflow-x: auto;
+  font-size: 14px;
+  line-height: 1.7;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* Same class names/colors as index.html's #highlight overlay, so a code
+   block here looks exactly like it would mid-type in the editor. */
+pre.code .cm { color: var(--fg2); }
+pre.code .kw { color: var(--magenta); }
+pre.code .wf { color: var(--cyan); }
+pre.code .nm { color: var(--fg); opacity: 0.5; }
+pre.code .nt { color: var(--green); }
+pre.code .tr { color: var(--pink); }
+pre.code .rs { color: var(--fg2); opacity: 0.3; }
+pre.code .bl { color: var(--fg2); opacity: 0.3; }
+pre.code .co { color: var(--purple); }
+pre.code .fx { color: var(--blue); }
+pre.code .nu { color: var(--orange); }
+pre.code .md { color: var(--purple); opacity: 0.7; }
+pre.code .er { text-decoration: underline wavy var(--error); }
+
+/* Playhead — mirrors index.html's #highlight .pt.playing exactly. */
+pre.code .pt.playing { background: var(--cyan); border-radius: 2px; }
+pre.code .pt.playing .nt,
+pre.code .pt.playing .tr,
+pre.code .pt.playing .md { color: var(--bg); opacity: 1; }
+pre.code .pt.playing:has(.rs) { background: none; }
+pre.code .pt.playing .rs { opacity: 0.7; }
+
+/* ── Footer ──────────────────────────────────────────────────────── */
+
+footer {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+  color: var(--fg2);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+@media (max-width: 560px) {
+  body { padding: 32px 16px 64px; }
+  header .title { font-size: 32px; }
+  #toc ol { columns: 1; }
+}
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <div class="title">hum<small>tutorial</small></div>
+  <p class="tagline">a 5-minute walkthrough of every feature in hum. read each block,
+    then press play — it's live, right here. each one builds on the last.</p>
+  <p class="hint"><span class="dot">●</span> every example below is playable. click <strong>play</strong> on any block to hear it;
+    <a href="index.html">open hum</a> to edit and hear changes live.</p>
+  <nav>
+    <a href="index.html">→ open hum</a>
+    <a href="SPEC.md">full spec</a>
+    <a href="https://github.com/mnmlyw/hum">github</a>
+  </nav>
+</header>
+
+<div id="toc">
+  <div class="toc-title">contents</div>
+  <ol>
+{{toc}}
+  </ol>
+</div>
+
+{{content}}
+
+<footer>
+  generated from <a href="TUTORIAL.md">TUTORIAL.md</a> by <code>tools/build-tutorial.js</code> —
+  edit the markdown, then run <code>npm run sync</code>. play buttons run hum's own
+  parser, highlighter and audio engine, inlined from index.html.<br>
+  <a href="index.html">← back to hum</a>
+</footer>
+
+</main>
+
+<script id="hum-core">{{script:hum-core}}</script>
+<script id="hum-engine">{{script:hum-engine}}</script>
+<script>
+// ── Play controller ─────────────────────────────────────────────────
+// Only one block plays at a time — starting a new one tears down whatever
+// was playing. Uses hum-engine's shared graph (channelNodes), like the app.
+
+let current = null; // { scheduler, wrapEl, btnEl, statusEl, stepSpanMap }
+let prevPlayingEls = [];
+
+function clearPlayhead() {
+  for (const el of prevPlayingEls) el.classList.remove('playing');
+  prevPlayingEls = [];
+}
+
+function stopCurrent() {
+  if (!current) return;
+  current.scheduler.stop();
+  teardownGraph();
+  clearPlayhead();
+  current.btnEl.textContent = 'play';
+  current.btnEl.classList.remove('playing');
+  current.statusEl.classList.remove('show');
+  current = null;
+}
+
+async function toggleWrap(wrapEl) {
+  if (current && current.wrapEl === wrapEl) { stopCurrent(); return; }
+
+  ensureAudioCtx();
+  await audioCtx.resume();
+
+  const hum = parse(wrapEl.querySelector('pre.code').textContent);
+  if (hum.channels.length === 0) return;
+
+  stopCurrent();
+  buildGraph(hum);
+  const scheduler = createScheduler(60 / hum.bpm / 2);
+  scheduler.start();
+
+  const btnEl = wrapEl.querySelector('.play-btn');
+  const statusEl = wrapEl.querySelector('.status');
+  current = { scheduler, wrapEl, btnEl, statusEl, stepSpanMap: wrapEl._stepSpanMap };
+  btnEl.textContent = 'stop';
+  btnEl.classList.add('playing');
+  statusEl.textContent = `bpm ${hum.bpm}`;
+  statusEl.classList.add('show');
+}
+
+function tickPlayhead() {
+  if (current) {
+    const vs = current.scheduler.getVisualStep();
+    clearPlayhead();
+    channelNodes.forEach((node, i) => {
+      const el = current.stepSpanMap[i + '-' + (vs % node.channel.pattern.length)];
+      if (el) { el.classList.add('playing'); prevPlayingEls.push(el); }
+    });
+  }
+  requestAnimationFrame(tickPlayhead);
+}
+
+for (const wrapEl of document.querySelectorAll('.code-wrap')) {
+  wrapEl._stepSpanMap = stepSpanMapFor(wrapEl.querySelector('pre.code'));
+  wrapEl.querySelector('.play-btn').addEventListener('click', () => toggleWrap(wrapEl));
+}
+
+requestAnimationFrame(tickPlayhead);
+</script>
+</body>
+</html>

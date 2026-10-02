@@ -1,3 +1,3 @@
 #!/usr/bin/env sh
-# Same chain as CI (`npm run test:all`): lint + spec + preset + Node tests.
-npm run lint && npm run check:spec && npm run preset:check && npm test
+# Same chain as CI.
+npm run check

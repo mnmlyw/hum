@@ -1,23 +1,8 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { loadBlocks } from '../tools/hum-blocks.js';
 
-// ── Extract live-update planner from index.html ───────────────────────
-
-const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
-let src = scriptMatch[1];
-
-// Strip browser-only tail so we can eval in Node (same pattern as parser.test.js).
-src = src.replace(/^const timerWorkerBlob[\s\S]*?const timerWorker[^\n]*/m, '');
-src = src.replace(/class Scheduler[\s\S]*$/, '');
-
-const module = {};
-const code = src + '\nmodule.exports = { parse, humKey, keysFor, nextBoundaryAt, planLiveUpdate, SCHEDULE_AHEAD };';
-const fn = new Function('module', code);
-fn(module);
-
-const { parse, humKey, keysFor, nextBoundaryAt, planLiveUpdate, SCHEDULE_AHEAD } = module.exports;
+const { parse, humKey, keysFor, nextBoundaryAt, planLiveUpdate, SCHEDULE_AHEAD } = loadBlocks(['hum-core']);
 
 // ── humKey ──────────────────────────────────────────────────────────
 

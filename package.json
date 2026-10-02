@@ -3,17 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/parser.test.js tests/live-update.test.js",
-    "test:all": "npm run lint && npm run check:spec && npm run preset:check && npm test",
+    "check": "npm run lint && npm run sync:check && npm run check:spec && npm test",
+    "test": "node --test 'tests/*.test.js'",
+    "lint": "eslint .",
     "check:spec": "node tools/check-spec.js",
-    "preset:embed": "node tools/embed-presets.js",
-    "preset:check": "node tools/embed-presets.js --check",
-    "lint": "eslint tests tools",
+    "sync": "node tools/embed-presets.js && node tools/build-tutorial.js",
+    "sync:check": "node tools/embed-presets.js --check && node tools/build-tutorial.js --check",
     "prepare": "husky"
   },
   "devDependencies": {
     "eslint": "^10.2.1",
+    "eslint-plugin-html": "^8.2.1",
     "globals": "^17.5.0",
-    "husky": "^9.1.7"
+    "husky": "^9.1.7",
+    "node-web-audio-api": "^2.2.0"
   }
 }

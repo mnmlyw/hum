@@ -20,17 +20,25 @@ for CI only. See `README.md` for the canonical dev commands.
   `index.html`.
 
 ### Tests / lint / checks (all Node-based, run from repo root)
-- Standard commands are documented in `README.md`. `npm run test:all` is exactly
-  what CI runs: `lint` → `check:spec` → `preset:check` → `test`.
+- Standard commands are documented in `README.md`. `npm run check` is exactly
+  what CI and the pre-commit hook run: `lint` → `sync:check` → `check:spec` →
+  `test`.
+- `index.html` has three script blocks: `hum-core` (pure: parser, planner,
+  scheduler timing, highlighter), `hum-engine` (Web Audio, no DOM) and the app.
+  Tests load the first two via `tools/hum-blocks.js`, so keep `hum-core` free
+  of DOM/Web Audio and `hum-engine` free of editor DOM.
+- `sync` regenerates derived files: demo `.hum`s embedded into `index.html`,
+  and `tutorial.html` built from `TUTORIAL.md` + `tools/tutorial.template.html`
+  (it inlines `hum-core`/`hum-engine`). After editing a demo, the tutorial, or
+  either of those blocks, run `npm run sync` and commit the results;
+  `sync:check` fails otherwise. Never edit `tutorial.html` by hand.
 - `check:spec` (`tools/check-spec.js`) asserts that factual claims in `SPEC.md`
   still match constants/behavior in `index.html`. If you change either
   `SPEC.md` or the relevant code in `index.html`, this can fail — keep them in
   sync.
-- `preset:check` (`tools/embed-presets.js --check`) verifies the demo `.hum`
-  files under `demos/` are embedded in `index.html`. If you add/edit a demo,
-  run `npm run preset:embed` to re-embed, then commit `index.html`.
-- The pre-commit hook (`.husky/pre-commit`) runs the same lint + spec + preset +
-  test chain, so commits are blocked on any failure.
+- `tests/audio.test.js` renders `hum-engine` through `node-web-audio-api`
+  (`OfflineAudioContext`). That library differs from browsers in places (see
+  the file header), so don't tighten its level assertions against it alone.
 
 ### GUI testing caveat
 - During idle periods (no mouse/keyboard input) the VM desktop shows a
